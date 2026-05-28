@@ -5,7 +5,7 @@ export function Footer({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   const { config } = useStore();
 
   const whatsappLink = config.whatsappNumber 
-    ? `https://wa.me/55${config.whatsappNumber.replace(/\D/g, '')}`
+    ? `https://wa.me/55${(config.whatsappNumber || '').replace(/\D/g, '')}`
     : '#';
 
   return (

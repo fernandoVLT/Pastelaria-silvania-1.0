@@ -183,7 +183,7 @@ export function AdminOrders() {
     const generateVia = (type: 'kitchen' | 'dispatch') => {
       let qrCodeHtml = '';
       if (type === 'dispatch') {
-         let wppLink = `https://wa.me/${config.whatsappNumber.replace(/\D/g, '')}`;
+         let wppLink = `https://wa.me/${(config.whatsappNumber || '').replace(/\D/g, '')}`;
          if(!wppLink.includes('wa.me/55')) wppLink = wppLink.replace('wa.me/', 'wa.me/55');
          const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(wppLink)}`;
          qrCodeHtml = `

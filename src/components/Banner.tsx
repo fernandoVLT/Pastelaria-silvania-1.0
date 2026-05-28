@@ -3,7 +3,7 @@ import { useStore } from '../contexts/StoreContext';
 export function Banner() {
   const { config } = useStore();
   
-  let formattedNumber = config.whatsappNumber.replace(/\D/g, '');
+  let formattedNumber = (config.whatsappNumber || '').replace(/\D/g, '');
   if (!formattedNumber.startsWith('55')) formattedNumber = `55${formattedNumber}`;
   const whatsappLink = `https://wa.me/${formattedNumber}?text=${encodeURIComponent(config.whatsappMessages?.contact || 'Olá, gostaria de tirar dúvidas!')}`;
 

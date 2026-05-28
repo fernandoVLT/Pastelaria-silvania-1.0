@@ -1,4 +1,9 @@
 export function generatePixCode(key: string, name: string, city: string, amount?: number): string {
+  // Defensive fallbacks
+  const safeName = name || 'RECEBEDOR';
+  const safeCity = city || 'CIDADE';
+  const safeKey = key || '';
+
   // Helpers
   const formatLength = (val: string) => val.length.toString().padStart(2, '0');
   const addField = (id: string, value: string) => `${id}${formatLength(value)}${value}`;
@@ -10,7 +15,7 @@ export function generatePixCode(key: string, name: string, city: string, amount?
   // 00 - GUI
   // 01 - PIX Key
   const gui = addField('00', 'br.gov.bcb.pix');
-  const pixKey = addField('01', key);
+  const pixKey = addField('01', safeKey);
   const merchantAccount = addField('26', gui + pixKey);
   
   // 52 - Merchant Category Code (0000)
@@ -30,11 +35,11 @@ export function generatePixCode(key: string, name: string, city: string, amount?
   
   // 59 - Merchant Name (max 25 chars)
   // Remove accents and special chars
-  const formattedName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z a-z]/g, '').substring(0, 25).trim() || 'RECEBEDOR';
+  const formattedName = safeName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z a-z]/g, '').substring(0, 25).trim() || 'RECEBEDOR';
   const merchantName = addField('59', formattedName);
   
   // 60 - Merchant City (max 15 chars)
-  const formattedCity = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z a-z]/g, '').substring(0, 15).trim() || 'CIDADE';
+  const formattedCity = safeCity.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z a-z]/g, '').substring(0, 15).trim() || 'CIDADE';
   const merchantCity = addField('60', formattedCity);
   
   // 62 - Additional Data Field Template

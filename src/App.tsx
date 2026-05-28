@@ -258,7 +258,7 @@ export default function App() {
 
       {/* Floating WhatsApp Button */}
       <a 
-        href={`https://wa.me/${config.whatsappNumber.replace(/\D/g, '').startsWith('55') ? config.whatsappNumber.replace(/\D/g, '') : '55' + config.whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(config.whatsappMessages?.contact || 'Olá, gostaria de fazer um pedido / tirar uma dúvida!')}`}
+        href={`https://wa.me/${(config.whatsappNumber || '').replace(/\D/g, '').startsWith('55') ? (config.whatsappNumber || '').replace(/\D/g, '') : '55' + (config.whatsappNumber || '').replace(/\D/g, '')}?text=${encodeURIComponent(config.whatsappMessages?.contact || 'Olá, gostaria de fazer um pedido / tirar uma dúvida!')}`}
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-24 right-4 md:bottom-8 md:right-8 w-14 h-14 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all z-40"

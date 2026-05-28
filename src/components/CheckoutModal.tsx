@@ -129,7 +129,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       }
       text += `*TOTAL A PAGAR:* ${formatCurrency(finalTotal)}`;
 
-      const storePhone = config.whatsappNumber.replace(/\D/g, '');
+      const storePhone = (config.whatsappNumber || '').replace(/\D/g, '');
       let destPhone = storePhone;
       if (!destPhone.startsWith('55')) destPhone = `55${destPhone}`;
       const url = `https://wa.me/${destPhone}?text=${encodeURIComponent(text)}`;
