@@ -1,9 +1,10 @@
-import { X, QrCode, CreditCard, Wallet, Utensils, CheckCircle, ExternalLink, MapPin, Store } from 'lucide-react';
+import { X, QrCode, CreditCard, Wallet, Utensils, CheckCircle, ExternalLink, MapPin, Store, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useStore } from '../contexts/StoreContext';
 import { CartItem, PaymentMethod, OrderType } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
+import { generatePixCode } from '../utils/pix';
 
 interface Props {
   items: CartItem[];
@@ -177,7 +178,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
     );
   }
 
-  const pixPayload = `00020126360014br.gov.bcb.pix0114${config.pixKey || '00000000000'}520400005303986540${finalTotal.toFixed(2).padStart(4, '0')}5802BR5914${config.logoText.replace(/\s/g, '').substring(0, 14)}6008BRASILIA62070503***6304`;
+  const pixPayload = generatePixCode(config.pixKey || '', config.pixReceiverName || config.logoText, config.pixReceiverCity || 'Cidade', finalTotal);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -331,14 +332,41 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
               {paymentMethod && (
                 <div className="mt-6 p-4 bg-white rounded-xl border border-gray-100 flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
                   {paymentMethod === 'Pix' && (
-                    <div className="flex flex-col items-center text-center">
-                      <p className="text-xs text-gray-500 mb-4 font-medium">Escaneie o QR Code abaixo para pagar via Pix</p>
+                    <div className="flex flex-col items-center text-center w-full">
+                      <p className="text-xs text-gray-500 mb-4 font-medium">Escaneie o QR Code ou use o código Copia e Cola para pagar via Pix</p>
                       <div className="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm mb-4">
                         <QRCodeSVG value={pixPayload} size={160} level="M" includeMargin={true} />
                       </div>
+                      
+                      <div className="w-full flex flex-col gap-2 mb-4">
+                         <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Pix Copia e Cola</label>
+                         <div className="flex w-full">
+                            <input 
+                              type="text" 
+                              readOnly 
+                              value={pixPayload} 
+                              className="flex-1 bg-gray-50 border border-r-0 border-gray-200 rounded-l-xl p-3 text-gray-900 text-xs focus:outline-none"
+                            />
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(pixPayload);
+                                alert('Código Copia e Cola copiado com sucesso!');
+                              }}
+                              className="px-4 bg-brand-red text-white flex items-center justify-center rounded-r-xl tracking-widest uppercase text-[10px] font-bold hover:bg-brand-red-dark transition-colors"
+                            >
+                               <Copy className="w-4 h-4" />
+                            </button>
+                         </div>
+                      </div>
+
                       {config.pixKey && (
                         <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">
                           Chave: <span className="text-gray-900 select-all">{config.pixKey}</span>
+                        </p>
+                      )}
+                      {(config.pixReceiverName || config.pixReceiverCity) && (
+                        <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mt-1">
+                          Recebedor: <span className="text-gray-900">{config.pixReceiverName} {config.pixReceiverCity ? ` - ${config.pixReceiverCity}` : ''}</span>
                         </p>
                       )}
                     </div>

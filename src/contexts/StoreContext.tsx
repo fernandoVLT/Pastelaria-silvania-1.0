@@ -47,6 +47,8 @@ interface StoreConfig {
   openTime?: string;
   closeTime?: string;
   pixKey?: string;
+  pixReceiverName?: string;
+  pixReceiverCity?: string;
   deliveryFee?: number;
   deliveryTimeType?: 'fixed' | 'range';
   fixedDeliveryTime?: number;
