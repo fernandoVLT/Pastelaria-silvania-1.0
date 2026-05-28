@@ -6,16 +6,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+// A Hostinger injeta a porta necessária via process.env.PORT
 const PORT = process.env.PORT || 3000;
 
-// Serve static files from dist directory
+// Servir os arquivos estáticos da compilação do React (pasta 'dist')
 app.use(express.static(join(__dirname, 'dist')));
 
-// Fallback to index.html for client-side routing
+// Redirecionar todas as outras requisições para o index.html (para o React Router funcionar)
 app.get('*', (req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
+// A Hostinger requer que a aplicação escute nesta porta
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
