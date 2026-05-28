@@ -1,0 +1,104 @@
+{
+  "entities": {
+    "StoreConfig": {
+      "title": "Store Config",
+      "description": "Configuration for the store.",
+      "type": "object",
+      "properties": {
+        "logoText": { "type": "string" },
+        "logoDescription": { "type": "string" },
+        "whatsappNumber": { "type": "string" },
+        "categories": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "bannerUrl": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "location": { "type": "string" },
+        "openingHours": { "type": "string" },
+        "aboutText": { "type": "string" },
+        "adminPassword": { "type": "string" },
+        "instagramUrl": { "type": "string" },
+        "facebookUrl": { "type": "string" },
+        "isOpen": { "type": "boolean" },
+        "autoOpenClose": { "type": "boolean" },
+        "openTime": { "type": "string" },
+        "closeTime": { "type": "string" },
+        "pixKey": { "type": "string" },
+        "deliveryFee": { "type": "number" },
+        "deliveryTimeType": { "type": "string" },
+        "fixedDeliveryTime": { "type": "number" },
+        "minDeliveryTime": { "type": "number" },
+        "maxDeliveryTime": { "type": "number" },
+        "notifyOnCartStart": { "type": "boolean" }
+      }
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A product for sale in the store.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "salesCount": { "type": "number" },
+        "isBestSeller": { "type": "boolean" },
+        "reviews": { "type": "array" }
+      }
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A customer review for a product.",
+      "type": "object",
+      "properties": {
+        "author": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "date": { "type": "string" }
+      }
+    },
+    "Order": {
+      "title": "Order",
+      "description": "An order placed by a customer.",
+      "type": "object",
+      "properties": {
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "customer": { "type": "object" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "number" }
+      }
+    },
+    "SystemNotification": {
+      "title": "SystemNotification",
+      "description": "Notifications for the system admin.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "read": { "type": "boolean" }
+      }
+    }
+  },
+  "firestore": {
+    "config/main": {
+      "schema": { "$ref": "#/entities/StoreConfig" },
+      "description": "The main configuration document for the store."
+    },
+    "products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "The collection of all products available."
+    },
+    "orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "The collection of customer orders."
+    },
+    "system_notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/SystemNotification" },
+      "description": "System notifications for admins."
+    }
+  }
+}
