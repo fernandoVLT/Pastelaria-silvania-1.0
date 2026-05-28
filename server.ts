@@ -14,16 +14,23 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+    try {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } catch (e) {
+      console.warn("Vite not found, falling back to static files.");
+      serveStaticFiles(app);
+    }
   } else {
-    // Production: serve static files
+    serveStaticFiles(app);
+  }
+
+  function serveStaticFiles(app: express.Express) {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    // SPA fallback
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
