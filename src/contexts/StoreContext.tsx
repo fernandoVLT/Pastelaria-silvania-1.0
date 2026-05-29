@@ -67,6 +67,12 @@ interface StoreConfig {
     orderDispatched?: boolean;
     orderDelivered?: boolean;
   };
+  whatsappApiConfig?: {
+    enabled?: boolean;
+    apiUrl?: string;
+    instanceId?: string;
+    token?: string;
+  };
   printConfig?: {
     autoPrint: boolean;
     autoPrintDelivery?: boolean;

@@ -193,7 +193,7 @@ export function AdminOrders() {
     return encodeURIComponent(baseMsg + itemsTxt);
   };
 
-  const verifyWhatsAppAutomation = (order: Order, newStatus: OrderStatus) => {
+  const verifyWhatsAppAutomation = async (order: Order, newStatus: OrderStatus) => {
     let shouldAutoSend = false;
     if (newStatus === 'Feito' && config.whatsappAutomations?.orderDone) shouldAutoSend = true;
     if (newStatus === 'Em Preparo' || newStatus === 'Pronto') shouldAutoSend = true; // Send specific status naturally
@@ -205,6 +205,31 @@ export function AdminOrders() {
       if (!phoneStr.startsWith('55')) phoneStr = `55${phoneStr}`;
       
       const text = getWhatsAppMessage(order, newStatus);
+      
+      // Send silently via Evolution API if enabled
+      if (config.whatsappApiConfig?.enabled && config.whatsappApiConfig.apiUrl && config.whatsappApiConfig.instanceId) {
+        try {
+          // Fire and forget via fetch to URL
+          const endpoint = `${config.whatsappApiConfig.apiUrl.replace(/\/$/, '')}/message/sendText/${config.whatsappApiConfig.instanceId}`;
+          await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': config.whatsappApiConfig.token || ''
+            },
+            body: JSON.stringify({
+              number: phoneStr,
+              text: decodeURIComponent(text)
+            })
+          });
+          toast.success('WhatsApp enviado via API (Silencioso).');
+          return; // Skip normal window open
+        } catch (err) {
+          toast.error('Ocorreu um erro ao enviar WPP silencioso');
+        }
+      }
+
+      // Fallback to normal Web Whatsapp if API is not enabled
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       
       if (isMobile) {
@@ -354,7 +379,7 @@ export function AdminOrders() {
                 <div className="flex gap-1 shrink-0">
                   <button 
                     title="Enviar mensagem no WhatsApp"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
                       let phoneStr = '';
                       if (order.customerPhone) {
@@ -362,6 +387,29 @@ export function AdminOrders() {
                         if (!phoneStr.startsWith('55')) phoneStr = `55${phoneStr}`;
                       }
                       const text = getWhatsAppMessage(order);
+                      
+                      // Using API
+                      if (config.whatsappApiConfig?.enabled && config.whatsappApiConfig.apiUrl && config.whatsappApiConfig.instanceId) {
+                        try {
+                          const endpoint = `${config.whatsappApiConfig.apiUrl.replace(/\/$/, '')}/message/sendText/${config.whatsappApiConfig.instanceId}`;
+                          await fetch(endpoint, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'apikey': config.whatsappApiConfig.token || ''
+                            },
+                            body: JSON.stringify({
+                              number: phoneStr,
+                              text: decodeURIComponent(text)
+                            })
+                          });
+                          toast.success('Mensagem enviada (API Silenciosa)');
+                          return;
+                        } catch (err) {
+                          toast.error('Erro na API.');
+                        }
+                      }
+                      
                       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
                       
                       if (isMobile) {

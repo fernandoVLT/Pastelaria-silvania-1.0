@@ -477,6 +477,57 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
               <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm space-y-4">
                 <h3 className="font-black text-sm uppercase tracking-widest text-gray-900 mb-4">Mensagens do WhatsApp</h3>
                 
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={formConfig.whatsappApiConfig?.enabled || false}
+                      onChange={e => setFormConfig({...formConfig, whatsappApiConfig: { ...formConfig.whatsappApiConfig, enabled: e.target.checked }})}
+                      className="w-5 h-5 rounded border-gray-300 text-brand-red focus:ring-brand-red cursor-pointer"
+                    />
+                    <div>
+                      <div className="text-sm font-bold text-gray-900">Integração API (Envio Direto sem tela)</div>
+                      <div className="text-[10px] text-gray-500">Enviar mensagens via Evolution API ao invés de abrir o WhatsApp Web.</div>
+                    </div>
+                  </div>
+                  
+                  {formConfig.whatsappApiConfig?.enabled && (
+                    <div className="space-y-3 pt-3 border-t border-gray-200">
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">URL Base da API</label>
+                        <input 
+                          type="text" 
+                          value={formConfig.whatsappApiConfig?.apiUrl || ''} 
+                          onChange={e => setFormConfig({...formConfig, whatsappApiConfig: { ...formConfig.whatsappApiConfig, apiUrl: e.target.value }})}
+                          placeholder="EX: https://api.seudominio.com"
+                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Nome da Instância</label>
+                          <input 
+                            type="text" 
+                            value={formConfig.whatsappApiConfig?.instanceId || ''} 
+                            onChange={e => setFormConfig({...formConfig, whatsappApiConfig: { ...formConfig.whatsappApiConfig, instanceId: e.target.value }})}
+                            placeholder="EX: loja01"
+                            className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Global API Key</label>
+                          <input 
+                            type="password" 
+                            value={formConfig.whatsappApiConfig?.token || ''} 
+                            onChange={e => setFormConfig({...formConfig, whatsappApiConfig: { ...formConfig.whatsappApiConfig, token: e.target.value }})}
+                            className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Novo Pedido</label>
                   <textarea 
