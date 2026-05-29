@@ -64,9 +64,12 @@ interface StoreConfig {
   };
   whatsappAutomations?: {
     orderDone?: boolean;
+    orderPreparing?: boolean;
+    orderReady?: boolean;
     orderDispatched?: boolean;
     orderDelivered?: boolean;
   };
+  enabledPaymentMethods?: string[];
   whatsappApiConfig?: {
     enabled?: boolean;
     apiUrl?: string;

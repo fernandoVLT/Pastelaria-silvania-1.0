@@ -568,6 +568,38 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
+                    <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500">Pedido Em Preparo (Cozinha)</label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <span className="text-[10px] font-bold uppercase text-gray-500">Auto</span>
+                      <input 
+                        type="checkbox" 
+                        checked={formConfig.whatsappAutomations?.orderPreparing ?? false}
+                        onChange={e => setFormConfig({...formConfig, whatsappAutomations: { ...formConfig.whatsappAutomations, orderPreparing: e.target.checked }})}
+                        className="rounded text-brand-red focus:ring-brand-red cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                  <p className="text-[10px] text-gray-400 -mt-1 mb-2 leading-tight">Será enviada a mensagem padrão ou via API.</p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500">Pedido Pronto</label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <span className="text-[10px] font-bold uppercase text-gray-500">Auto</span>
+                      <input 
+                        type="checkbox" 
+                        checked={formConfig.whatsappAutomations?.orderReady ?? false}
+                        onChange={e => setFormConfig({...formConfig, whatsappAutomations: { ...formConfig.whatsappAutomations, orderReady: e.target.checked }})}
+                        className="rounded text-brand-red focus:ring-brand-red cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                  <p className="text-[10px] text-gray-400 -mt-1 mb-2 leading-tight">Será enviada a mensagem padrão ou via API.</p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
                     <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500">Pedido a Caminho</label>
                     <label className="flex items-center space-x-2 cursor-pointer">
                       <span className="text-[10px] font-bold uppercase text-gray-500">Auto</span>

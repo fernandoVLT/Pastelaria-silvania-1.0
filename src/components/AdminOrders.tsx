@@ -196,10 +196,8 @@ export function AdminOrders() {
   const verifyWhatsAppAutomation = async (order: Order, newStatus: OrderStatus) => {
     let shouldAutoSend = false;
     if (newStatus === 'Feito' && config.whatsappAutomations?.orderDone) shouldAutoSend = true;
-    if (newStatus === 'Em Preparo' || newStatus === 'Pronto') {
-        // Only trigger these if API is enabled, otherwise it's too annoying to pop up mid-service
-        if (config.whatsappApiConfig?.enabled) shouldAutoSend = true;
-    }
+    if (newStatus === 'Em Preparo' && config.whatsappAutomations?.orderPreparing) shouldAutoSend = true;
+    if (newStatus === 'Pronto' && config.whatsappAutomations?.orderReady) shouldAutoSend = true;
     if (newStatus === 'A caminho' && config.whatsappAutomations?.orderDispatched) shouldAutoSend = true;
     if (newStatus === 'Entregue' && config.whatsappAutomations?.orderDelivered) shouldAutoSend = true;
 
@@ -232,9 +230,20 @@ export function AdminOrders() {
         }
       }
 
-      // If they don't have the API configured, we do NOT automatically open the WhatsApp popup
-      // on status changes anymore, because it interrupts the flow.
-      toast('Para envio silencioso automático, configure a Integração API no menu Admin.', { icon: 'ℹ️', duration: 4000 });
+      // Fallback to normal Web Whatsapp if API is not enabled
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // Use intent URI so it doesn't open a new browser tab and leaves the admin screen intact
+        window.location.href = `whatsapp://send?phone=${phoneStr}&text=${text}`;
+      } else {
+        // Use intent URI for desktop as well if they have WhatsApp installed
+        const popup = window.open(`https://web.whatsapp.com/send?phone=${phoneStr}&text=${text}`, 'whatsapp_popup', 'width=800,height=600');
+        if (!popup) {
+           // Fallback to regular WA web
+           window.open(`https://api.whatsapp.com/send?phone=${phoneStr}&text=${text}`, '_blank', 'noopener,noreferrer');
+        }
+      }
     }
   };
 
