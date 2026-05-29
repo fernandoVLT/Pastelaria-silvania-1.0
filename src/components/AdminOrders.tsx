@@ -279,11 +279,26 @@ export function AdminOrders() {
 
   if (loading) return <div className="p-8 text-center text-gray-500 animate-pulse">Carregando pedidos...</div>;
 
+  const handleDrop = async (e: React.DragEvent, newStatus: OrderStatus) => {
+    e.preventDefault();
+    const orderId = e.dataTransfer.getData('orderId');
+    if (!orderId) return;
+    
+    const order = orders.find(o => o.id === orderId);
+    if (!order || order.status === newStatus || newStatus === 'Cancelado') return; // Cancel must go through the modal
+    
+    await handleStatusChange(order, newStatus);
+  };
+
   const renderColumn = (status: OrderStatus, title: string) => {
     const columnOrders = filteredOrders.filter(o => o.status === status);
     
     return (
-      <div className="w-[85vw] md:flex-1 md:min-w-[300px] shrink-0 bg-gray-100/50 rounded-2xl p-4 flex flex-col gap-4 snap-center">
+      <div 
+        className="w-[85vw] md:flex-1 md:min-w-[300px] shrink-0 bg-gray-100/50 rounded-2xl p-4 flex flex-col gap-4 snap-center transition-colors hover:bg-gray-200/50"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => handleDrop(e, status)}
+      >
         <div className="flex items-center justify-between mb-2 px-2">
           <div className="flex items-center gap-2">
             <div className={`w-3 h-3 rounded-full ${STATUS_INDICATOR[status]}`}></div>
@@ -301,12 +316,14 @@ export function AdminOrders() {
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.3 }}
               key={order.id} 
-              className={`rounded-xl p-5 border-2 shadow-sm flex flex-col gap-3 transition-all ${STATUS_COLORS[order.status]}`}
+              className={`rounded-xl p-3 border shadow-sm flex flex-col gap-2 cursor-grab active:cursor-grabbing transition-all ${STATUS_COLORS[order.status]}`}
+              draggable
+              onDragStart={(e: any) => e.dataTransfer.setData('orderId', order.id)}
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                    <span className={`flex items-center gap-1 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-sm ${order.orderType === 'Delivery' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                  <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                    <span className={`flex items-center gap-1 text-[8px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded-sm ${order.orderType === 'Delivery' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}`}>
                       {order.orderType === 'Delivery' ? <Bike className="w-3 h-3" /> : <Store className="w-3 h-3" />}
                       {order.orderType === 'Delivery' ? 'Delivery' : 'Retirada'}
                     </span>
@@ -315,20 +332,20 @@ export function AdminOrders() {
                        initial={{ backgroundColor: '#fff', color: '#000' }}
                        animate={{ backgroundColor: '#fff', color: '#111827' }}
                        transition={{ duration: 0.3 }}
-                       className={`flex items-center gap-1 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-sm bg-white border border-gray-200 text-gray-700 shadow-sm`}
+                       className={`flex items-center gap-1 text-[8px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded-sm bg-white border border-gray-200 text-gray-700 shadow-sm`}
                     >
                        <div className={`w-1.5 h-1.5 rounded-full ${STATUS_INDICATOR[order.status]}`}></div>
                        {order.status}
                     </motion.span>
                   </div>
-                  <h4 className="font-bold text-gray-900 text-lg leading-none">{order.customerName}</h4>
-                  <div className="flex flex-col gap-1 mt-2">
-                    <div className="text-xs text-gray-500 font-medium flex items-center gap-1">
+                  <h4 className="font-bold text-gray-900 text-sm leading-none">{order.customerName}</h4>
+                  <div className="flex flex-col gap-1 mt-1.5">
+                    <div className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
                       <Clock className="w-3 h-3 shrink-0" />
                       Feito às: {new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                     </div>
                     {order.scheduledDate && order.scheduledTime && (
-                      <div className="text-xs text-brand-red font-bold flex items-center gap-1">
+                      <div className="text-[10px] text-brand-red font-bold flex items-center gap-1">
                         <Calendar className="w-3 h-3 shrink-0" />
                         Agendado: {order.scheduledDate.split('-').reverse().join('/')} às {order.scheduledTime}
                       </div>
@@ -336,28 +353,28 @@ export function AdminOrders() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-black text-brand-red">{formatCurrency(order.total)}</div>
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{order.paymentMethod}</div>
+                  <div className="font-bold text-brand-red text-sm">{formatCurrency(order.total)}</div>
+                  <div className="text-[9px] font-bold uppercase tracking-widest text-gray-400">{order.paymentMethod}</div>
                 </div>
               </div>
 
               {order.status === 'Cancelado' && order.cancellationReason && (
-                <div className="px-3 py-2 bg-red-50 text-red-700 text-xs font-medium rounded-lg mt-1 border border-red-100">
-                  <strong className="block text-[9px] uppercase tracking-widest opacity-80 decoration-slice">Motivo do Cancelamento</strong>
+                <div className="px-2 py-1.5 bg-red-50 text-red-700 text-[10px] font-medium rounded-lg mt-0.5 border border-red-100">
+                  <strong className="block text-[8px] uppercase tracking-widest opacity-80 decoration-slice">Motivo do Cancelamento</strong>
                   {order.cancellationReason}
                 </div>
               )}
               
               {order.status === 'Em Preparo' && (
-                <div className="px-3 py-2 bg-purple-50 text-purple-700 text-xs font-bold rounded-lg mt-1 border border-purple-100 flex items-center gap-1.5 animate-pulse">
-                  <TimerIcon className="w-4 h-4 shrink-0" />
-                  Tempo de preparo: <ElapsedTimer startTime={order.createdAt} />
+                <div className="px-2 py-1.5 bg-purple-50 text-purple-700 text-[10px] font-bold rounded-lg mt-0.5 border border-purple-100 flex items-center gap-1.5 animate-pulse">
+                  <TimerIcon className="w-3 h-3 shrink-0" />
+                  Preparo: <ElapsedTimer startTime={order.createdAt} />
                 </div>
               )}
               
-              <div className="py-3 border-y border-gray-100/50">
-                <div className="font-medium text-xs text-gray-600 mb-2">{order.items.length} itens:</div>
-                <ul className="text-sm space-y-1 text-gray-800">
+              <div className="py-2 border-y border-gray-100/50">
+                <div className="font-medium text-[10px] text-gray-600 mb-1.5">{order.items.length} itens:</div>
+                <ul className="text-xs space-y-0.5 text-gray-800">
                   {order.items.map((item, i) => (
                     <li key={i} className="flex justify-between items-start">
                       <span><span className="font-bold mr-1">{item.quantity}x</span> {item.productName}</span>
