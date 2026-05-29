@@ -106,11 +106,6 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
     enc.newline();
     enc.text(`${order.address.neighborhood}`);
     enc.newline();
-    if (order.address.complement) {
-      enc.text(`${order.address.complement}`);
-      enc.newline();
-    }
-    enc.newline();
     
     if (order.paymentMethod) {
       enc.text(`Pagamento Presencial:`);

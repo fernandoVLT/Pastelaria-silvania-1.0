@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useOrders } from '../hooks/useOrders';
 import { Order, OrderStatus } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';

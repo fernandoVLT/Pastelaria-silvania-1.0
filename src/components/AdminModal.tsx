@@ -1,4 +1,4 @@
-import { X, Plus, Edit2, Trash2, Save, Image as ImageIcon, BarChart3 } from 'lucide-react';
+import { X, Plus, Edit2, Trash2, Save, Image as ImageIcon, BarChart3, Check } from 'lucide-react';
 import React, { useState } from 'react';
 import { useStore } from '../contexts/StoreContext';
 import { Product } from '../types';
