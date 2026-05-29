@@ -75,15 +75,10 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
     }));
 
     try {
-      await createOrder({
+      const orderData: any = {
         customerName: name.trim(),
         customerPhone: phone.trim(),
         orderType,
-        address: orderType === 'Delivery' ? {
-          neighborhood,
-          street: street.trim(),
-          number: addressNumber.trim()
-        } : undefined,
         paymentMethod,
         items: orderItems,
         subtotal: itemsTotal,
@@ -91,9 +86,22 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
         total: finalTotal,
         status: 'Feito',
         createdAt: Date.now(),
-        scheduledDate: isScheduled ? scheduledDate : undefined,
-        scheduledTime: isScheduled ? scheduledTime : undefined,
-      });
+      };
+
+      if (orderType === 'Delivery') {
+        orderData.address = {
+          neighborhood,
+          street: street.trim(),
+          number: addressNumber.trim()
+        };
+      }
+
+      if (isScheduled) {
+        orderData.scheduledDate = scheduledDate;
+        orderData.scheduledTime = scheduledTime;
+      }
+
+      await createOrder(orderData);
 
       // Send to WhatsApp
       let text = config.whatsappMessages?.newOrder ? `${config.whatsappMessages.newOrder}\n\n` : `*NOVO PEDIDO - ${config.logoText.toUpperCase()}* 🛍️\n\n`;
