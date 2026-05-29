@@ -72,6 +72,7 @@ interface StoreConfig {
     autoPrintDelivery?: boolean;
     autoPrintPickup?: boolean;
   };
+  enabledPaymentMethods?: string[];
 }
 
 interface StoreContextType {
@@ -109,6 +110,7 @@ const DEFAULT_CONFIG: StoreConfig = {
   minDeliveryTime: 30,
   maxDeliveryTime: 50,
   notifyOnCartStart: false,
+  enabledPaymentMethods: ['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'],
 };
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);

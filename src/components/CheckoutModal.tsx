@@ -1,4 +1,4 @@
-import { X, QrCode, CreditCard, Wallet, Utensils, CheckCircle, ExternalLink, MapPin, Store, Copy } from 'lucide-react';
+import { X, QrCode, CreditCard, Wallet, Utensils, CheckCircle, ExternalLink, MapPin, Store, Copy, Banknote } from 'lucide-react';
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useStore } from '../contexts/StoreContext';
@@ -13,11 +13,12 @@ interface Props {
   onFinish: () => void;
 }
 
-const PAYMENT_METHODS: PaymentMethod[] = [
+const FALLBACK_PAYMENT_METHODS: PaymentMethod[] = [
   'Pix',
   'Cartão de Crédito',
   'Cartão de Débito',
-  'Vale Alimentação'
+  'Vale Alimentação',
+  'Dinheiro'
 ];
 
 const ALLOWED_NEIGHBORHOODS = [
@@ -248,11 +249,12 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
               <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-4">Forma de Pagamento *</label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {PAYMENT_METHODS.map((method) => {
+                {(config.enabledPaymentMethods || FALLBACK_PAYMENT_METHODS).map((method) => {
                   const methodConfig = 
                     method === 'Pix' ? { Icon: QrCode, color: 'text-teal-500', bg: 'bg-teal-50', border: 'border-teal-500' } :
                     method === 'Cartão de Crédito' ? { Icon: CreditCard, color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-500' } :
                     method === 'Cartão de Débito' ? { Icon: Wallet, color: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-500' } :
+                    method === 'Dinheiro' ? { Icon: Banknote, color: 'text-green-500', bg: 'bg-green-50', border: 'border-green-500' } :
                     { Icon: Utensils, color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-500' };
                   
                   const { Icon, color, bg, border } = methodConfig;
@@ -261,7 +263,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                   return (
                     <button
                       key={method}
-                      onClick={() => setPaymentMethod(method)}
+                      onClick={() => setPaymentMethod(method as PaymentMethod)}
                       className={`relative border-2 rounded-xl p-4 text-[9px] font-black tracking-widest uppercase transition-all flex flex-col items-center justify-center gap-3 text-center h-28 ${
                         isSelected 
                           ? `${border} ${color} ${bg} shadow-md scale-105 z-10 ring-4 ring-${color.split('-')[1]}-500/20` 
@@ -324,101 +326,9 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                     </div>
                   )}
                   
-                  {(paymentMethod === 'Cartão de Crédito' || paymentMethod === 'Cartão de Débito' || paymentMethod === 'Vale Alimentação') && (
+                  {paymentMethod !== 'Pix' && (
                     <div className="flex flex-col items-center text-center py-4">
-                      <p className="text-xs text-gray-500 mb-6 font-medium">Lembre-se de preparar seu cartão na entrega/retirada.</p>
-                      <div className="flex items-center gap-2 bg-gray-100 text-gray-600 px-6 py-3 rounded-full text-xs font-bold tracking-widest uppercase transition-colors shadow-sm">
-                        <Wallet className="w-4 h-4" />
-                        Aguardando Pagamento Presencial
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-4">Forma de Pagamento *</label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {PAYMENT_METHODS.map((method) => {
-                  const methodConfig = 
-                    method === 'Pix' ? { Icon: QrCode, color: 'text-teal-500', bg: 'bg-teal-50', border: 'border-teal-500' } :
-                    method === 'Cartão de Crédito' ? { Icon: CreditCard, color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-500' } :
-                    method === 'Cartão de Débito' ? { Icon: Wallet, color: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-500' } :
-                    { Icon: Utensils, color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-500' };
-                  
-                  const { Icon, color, bg, border } = methodConfig;
-                  const isSelected = paymentMethod === method;
-                  
-                  return (
-                    <button
-                      key={method}
-                      onClick={() => setPaymentMethod(method)}
-                      className={`relative border-2 rounded-xl p-4 text-[9px] font-black tracking-widest uppercase transition-all flex flex-col items-center justify-center gap-3 text-center h-28 ${
-                        isSelected 
-                          ? `${border} ${color} ${bg} shadow-md scale-105 z-10 ring-4 ring-${color.split('-')[1]}-500/20` 
-                          : 'border-gray-200 text-gray-400 bg-white hover:border-gray-300 hover:bg-gray-50 hover:text-gray-600'
-                      }`}
-                    >
-                      <Icon className={`w-8 h-8 transition-colors ${isSelected ? color : 'text-gray-300 group-hover:text-gray-500'}`} />
-                      <span>{method}</span>
-                      {isSelected && (
-                         <div className={`absolute -top-2 -right-2 w-5 h-5 rounded-full ${bg} border-2 ${border} flex items-center justify-center`}>
-                           <div className={`w-2 h-2 rounded-full ${bg.replace('50', '500')}`}></div>
-                         </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              
-              {/* Payment Context Options */}
-              {paymentMethod && (
-                <div className="mt-6 p-4 bg-white rounded-xl border border-gray-100 flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
-                  {paymentMethod === 'Pix' && (
-                    <div className="flex flex-col items-center text-center w-full">
-                       <p className="text-xs text-gray-500 mb-4 font-medium">Escaneie o QR Code ou use o código Copia e Cola para pagar via Pix</p>
-                       <div className="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm mb-4">
-                         <QRCodeSVG value={pixPayload} size={160} level="M" includeMargin={true} />
-                       </div>
-                       
-                       <div className="w-full flex flex-col gap-2 mb-4">
-                          <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Pix Copia e Cola</label>
-                          <div className="flex w-full">
-                             <input 
-                               type="text" 
-                               readOnly 
-                               value={pixPayload} 
-                               className="flex-1 bg-gray-50 border border-r-0 border-gray-200 rounded-l-xl p-3 text-gray-900 text-xs focus:outline-none"
-                             />
-                             <button 
-                               onClick={() => {
-                                 navigator.clipboard.writeText(pixPayload);
-                                 alert('Código Copia e Cola copiado com sucesso!');
-                               }}
-                               className="px-4 bg-brand-red text-white flex items-center justify-center rounded-r-xl tracking-widest uppercase text-[10px] font-bold hover:bg-brand-red-dark transition-colors"
-                             >
-                                <Copy className="w-4 h-4" />
-                             </button>
-                          </div>
-                       </div>
- 
-                       {config.pixKey && (
-                         <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">
-                           Chave: <span className="text-gray-900 select-all">{config.pixKey}</span>
-                         </p>
-                       )}
-                       {(config.pixReceiverName || config.pixReceiverCity) && (
-                         <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mt-1">
-                           Recebedor: <span className="text-gray-900">{config.pixReceiverName} {config.pixReceiverCity ? ` - ${config.pixReceiverCity}` : ''}</span>
-                         </p>
-                       )}
-                    </div>
-                  )}
-                  
-                  {(paymentMethod === 'Cartão de Crédito' || paymentMethod === 'Cartão de Débito' || paymentMethod === 'Vale Alimentação') && (
-                    <div className="flex flex-col items-center text-center py-4">
-                      <p className="text-xs text-gray-500 mb-6 font-medium">Lembre-se de preparar seu cartão na entrega/retirada.</p>
+                      <p className="text-xs text-gray-500 mb-6 font-medium">Lembre-se de preparar o pagamento na entrega/retirada.</p>
                       <div className="flex items-center gap-2 bg-gray-100 text-gray-600 px-6 py-3 rounded-full text-xs font-bold tracking-widest uppercase transition-colors shadow-sm">
                         <Wallet className="w-4 h-4" />
                         Aguardando Pagamento Presencial

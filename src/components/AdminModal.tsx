@@ -391,6 +391,40 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                     )}
                   </div>
                 </div>
+
+                {/* Formas de Pagamento */}
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2 mt-4">Formas de Pagamento Habilitadas</label>
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 gap-4 grid grid-cols-2 md:grid-cols-3">
+                    {['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'].map((method) => {
+                      const enabledMethods = formConfig.enabledPaymentMethods || ['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'];
+                      const isEnabled = enabledMethods.includes(method);
+                      
+                      return (
+                        <label key={method} className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isEnabled}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              const currentMethods = [...enabledMethods];
+                              if (checked) {
+                                if (!currentMethods.includes(method)) currentMethods.push(method);
+                              } else {
+                                const index = currentMethods.indexOf(method);
+                                if (index > -1) currentMethods.splice(index, 1);
+                              }
+                              setFormConfig({ ...formConfig, enabledPaymentMethods: currentMethods });
+                            }}
+                            className="w-5 h-5 rounded border-gray-300 text-brand-red focus:ring-brand-red cursor-pointer"
+                          />
+                          <span className="text-sm font-bold text-gray-900">{method}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Senha do Admin</label>
                   <input 

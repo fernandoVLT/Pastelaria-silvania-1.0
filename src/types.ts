@@ -27,7 +27,7 @@ export interface CartItem {
   observation?: string;
 }
 
-export type PaymentMethod = 'Pix' | 'Cartão de Crédito' | 'Cartão de Débito' | 'Vale Alimentação';
+export type PaymentMethod = 'Pix' | 'Cartão de Crédito' | 'Cartão de Débito' | 'Vale Alimentação' | 'Dinheiro' | string;
 
 export type OrderStatus = 'Feito' | 'Em Preparo' | 'Pronto' | 'A caminho' | 'Entregue' | 'Cancelado';
 export type OrderType = 'Delivery' | 'Retirada';
