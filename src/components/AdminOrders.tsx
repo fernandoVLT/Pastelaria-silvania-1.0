@@ -6,6 +6,7 @@ import { Printer, MapPin, Phone, MessageSquare, Clock, Calendar, Store, Check, B
 import { useStore } from '../contexts/StoreContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { useReactToPrint } from 'react-to-print';
+import { printDirectToUsb } from '../utils/printUsb';
 import { ReceiptPrint } from './ReceiptPrint';
 import toast from 'react-hot-toast';
 
@@ -39,7 +40,7 @@ const STATUS_INDICATOR = {
 
 export function AdminOrders() {
   const { orders, loading, updateOrderStatus } = useOrders();
-  const { config } = useStore();
+  const { config, updateConfig } = useStore();
 
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState('');
@@ -269,10 +270,24 @@ export function AdminOrders() {
     setCancelingOrder(null);
   };
 
-  const handlePrint = (order: Order) => {
+  const handlePrint = async (order: Order) => {
+    toast.success('Enviando para impressora...');
+    
+    // Check if USB printing is enabled
+    if (config.printConfig?.usbPrinter) {
+      try {
+        const success = await printDirectToUsb(order);
+        if (success) {
+          toast.success('Impresso via USB com sucesso!');
+          return;
+        }
+      } catch (err) {
+         console.error('USB print failed, falling back', err);
+      }
+    }
+
     // Check if the order is already in the queue to prevent duplicates
     if (!printQueue.some(o => o.id === order.id)) {
-      toast.success('Enviando para impressora...');
       setPrintQueue(prev => [...prev, order]);
     }
   };
@@ -316,15 +331,15 @@ export function AdminOrders() {
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.3 }}
               key={order.id} 
-              className={`rounded-xl p-3 border shadow-sm flex flex-col gap-2 cursor-grab active:cursor-grabbing transition-all ${STATUS_COLORS[order.status]}`}
+              className={`rounded-lg p-2 border shadow-sm flex flex-col gap-1 cursor-grab active:cursor-grabbing transition-all ${STATUS_COLORS[order.status]}`}
               draggable
               onDragStart={(e: any) => e.dataTransfer.setData('orderId', order.id)}
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                    <span className={`flex items-center gap-1 text-[8px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded-sm ${order.orderType === 'Delivery' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                      {order.orderType === 'Delivery' ? <Bike className="w-3 h-3" /> : <Store className="w-3 h-3" />}
+                  <div className="flex flex-wrap items-center gap-1 mb-1">
+                    <span className={`flex items-center gap-1 text-[7px] font-black tracking-widest uppercase px-1 py-0.5 rounded-sm ${order.orderType === 'Delivery' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                      {order.orderType === 'Delivery' ? <Bike className="w-2.5 h-2.5" /> : <Store className="w-2.5 h-2.5" />}
                       {order.orderType === 'Delivery' ? 'Delivery' : 'Retirada'}
                     </span>
                     <motion.span 
@@ -332,62 +347,62 @@ export function AdminOrders() {
                        initial={{ backgroundColor: '#fff', color: '#000' }}
                        animate={{ backgroundColor: '#fff', color: '#111827' }}
                        transition={{ duration: 0.3 }}
-                       className={`flex items-center gap-1 text-[8px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded-sm bg-white border border-gray-200 text-gray-700 shadow-sm`}
+                       className={`flex items-center gap-1 text-[7px] font-black tracking-widest uppercase px-1 py-0.5 rounded-sm bg-white border border-gray-200 text-gray-700 shadow-sm`}
                     >
-                       <div className={`w-1.5 h-1.5 rounded-full ${STATUS_INDICATOR[order.status]}`}></div>
+                       <div className={`w-1 h-1 rounded-full ${STATUS_INDICATOR[order.status]}`}></div>
                        {order.status}
                     </motion.span>
                   </div>
-                  <h4 className="font-bold text-gray-900 text-sm leading-none">{order.customerName}</h4>
-                  <div className="flex flex-col gap-1 mt-1.5">
-                    <div className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
-                      <Clock className="w-3 h-3 shrink-0" />
-                      Feito às: {new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  <h4 className="font-bold text-gray-900 text-xs leading-none">{order.customerName}</h4>
+                  <div className="flex flex-col mt-1">
+                    <div className="text-[9px] text-gray-500 font-medium flex items-center gap-1">
+                      <Clock className="w-2.5 h-2.5 shrink-0" />
+                      {new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                     </div>
                     {order.scheduledDate && order.scheduledTime && (
-                      <div className="text-[10px] text-brand-red font-bold flex items-center gap-1">
-                        <Calendar className="w-3 h-3 shrink-0" />
+                      <div className="text-[9px] text-brand-red font-bold flex items-center gap-1">
+                        <Calendar className="w-2.5 h-2.5 shrink-0" />
                         Agendado: {order.scheduledDate.split('-').reverse().join('/')} às {order.scheduledTime}
                       </div>
                     )}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-bold text-brand-red text-sm">{formatCurrency(order.total)}</div>
-                  <div className="text-[9px] font-bold uppercase tracking-widest text-gray-400">{order.paymentMethod}</div>
+                  <div className="font-bold text-brand-red text-xs">{formatCurrency(order.total)}</div>
+                  <div className="text-[8px] font-bold uppercase tracking-widest text-gray-400">{order.paymentMethod}</div>
                 </div>
               </div>
 
               {order.status === 'Cancelado' && order.cancellationReason && (
-                <div className="px-2 py-1.5 bg-red-50 text-red-700 text-[10px] font-medium rounded-lg mt-0.5 border border-red-100">
-                  <strong className="block text-[8px] uppercase tracking-widest opacity-80 decoration-slice">Motivo do Cancelamento</strong>
+                <div className="px-1.5 py-1 bg-red-50 text-red-700 text-[9px] font-medium rounded-md mt-0 border border-red-100">
+                  <strong className="block text-[7px] uppercase tracking-widest opacity-80 decoration-slice">Motivo Cancelamento</strong>
                   {order.cancellationReason}
                 </div>
               )}
               
               {order.status === 'Em Preparo' && (
-                <div className="px-2 py-1.5 bg-purple-50 text-purple-700 text-[10px] font-bold rounded-lg mt-0.5 border border-purple-100 flex items-center gap-1.5 animate-pulse">
-                  <TimerIcon className="w-3 h-3 shrink-0" />
+                <div className="px-1.5 py-1 bg-purple-50 text-purple-700 text-[9px] font-bold rounded-md mt-0 border border-purple-100 flex items-center gap-1 animate-pulse">
+                  <TimerIcon className="w-2.5 h-2.5 shrink-0" />
                   Preparo: <ElapsedTimer startTime={order.createdAt} />
                 </div>
               )}
               
-              <div className="py-2 border-y border-gray-100/50">
-                <div className="font-medium text-[10px] text-gray-600 mb-1.5">{order.items.length} itens:</div>
-                <ul className="text-xs space-y-0.5 text-gray-800">
+              <div className="py-1 border-y border-gray-100/50">
+                <div className="font-medium text-[9px] text-gray-600 mb-0.5">{order.items.length} itens:</div>
+                <ul className="text-[10px] space-y-0 text-gray-800">
                   {order.items.map((item, i) => (
-                    <li key={i} className="flex justify-between items-start">
+                    <li key={i} className="flex justify-between items-start leading-tight">
                       <span><span className="font-bold mr-1">{item.quantity}x</span> {item.productName}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-gray-600 gap-2">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 shrink-0 text-gray-400" />
+              <div className="flex items-center justify-between text-[10px] text-gray-600 gap-2">
+                <div className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3 shrink-0 text-gray-400" />
                   {order.orderType === 'Delivery' && order.address ? (
-                    <span>{order.address.neighborhood} - {order.address.street}, {order.address.number}</span>
+                    <span className="leading-tight">{order.address.neighborhood} - {order.address.street}, {order.address.number}</span>
                   ) : (
                     <span className="font-bold text-brand-red">Retirada no Local</span>
                   )}
@@ -479,29 +494,29 @@ export function AdminOrders() {
               )}
 
               {/* Actions */}
-              <div className="mt-2 pt-3 border-t border-gray-200/50 flex flex-wrap gap-2">
+              <div className="mt-1 pt-2 border-t border-gray-200/50 flex flex-wrap gap-1">
                 {order.status === 'Feito' && (
                   <button 
                     onClick={() => {
                        handleStatusChange(order, 'Em Preparo');
                     }}
-                    className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg text-[10px] font-bold tracking-widest uppercase transition-colors"
+                    className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-1.5 rounded-md text-[9px] font-bold tracking-widest uppercase transition-colors"
                   >
-                    Enviar para Cozinha
+                    Cozinha
                   </button>
                 )}
                 {order.status === 'Em Preparo' && (
                   <button 
                     onClick={() => handleStatusChange(order, 'Pronto')}
-                    className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg text-[10px] font-bold tracking-widest uppercase transition-colors"
+                    className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-1.5 rounded-md text-[9px] font-bold tracking-widest uppercase transition-colors"
                   >
-                    {order.orderType === 'Delivery' ? 'Saiu para Entrega' : 'Pronto para Retirar'}
+                    {order.orderType === 'Delivery' ? 'Saiu' : 'Retirar'}
                   </button>
                 )}
                 {order.status === 'Pronto' && (
                   <button 
                     onClick={() => handleStatusChange(order, 'Entregue')}
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg text-[10px] font-bold tracking-widest uppercase transition-colors"
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white py-1.5 rounded-md text-[9px] font-bold tracking-widest uppercase transition-colors"
                   >
                      {order.orderType === 'Delivery' ? 'Entregue' : 'Retirado'}
                   </button>
@@ -510,7 +525,7 @@ export function AdminOrders() {
                 {order.status === 'A caminho' && (
                   <button 
                     onClick={() => handleStatusChange(order, 'Entregue')}
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg text-[10px] font-bold tracking-widest uppercase transition-colors"
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white py-1.5 rounded-md text-[9px] font-bold tracking-widest uppercase transition-colors"
                   >
                     Concluir
                   </button>
@@ -518,18 +533,18 @@ export function AdminOrders() {
                 {['Feito', 'Em Preparo', 'A caminho', 'Pronto'].includes(order.status) && (
                   <button 
                     onClick={() => setCancelingOrder(order)}
-                    className="flex-1 max-w-[100px] bg-red-100 hover:bg-red-200 text-red-700 py-2 rounded-lg text-[10px] font-bold tracking-widest uppercase transition-colors"
+                    className="flex-1 max-w-[70px] bg-red-100 hover:bg-red-200 text-red-700 py-1.5 rounded-md text-[9px] font-bold tracking-widest uppercase transition-colors"
                   >
                     Cancelar
                   </button>
                 )}
                 
-                <div className="flex w-full mt-1">
+                <div className="flex w-full mt-0.5">
                   <button 
                     onClick={() => handlePrint(order)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-gray-800 hover:bg-black text-white py-2.5 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all shadow-md hover:shadow-lg"
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-black text-white py-1.5 rounded-md text-[9px] font-black tracking-widest uppercase transition-all shadow-sm hover:shadow-md"
                   >
-                    <Printer className="w-4 h-4" /> Re-Imprimir Vias (Cozinha & Caixa)
+                    <Printer className="w-3 h-3" /> Re-Imprimir Vias
                   </button>
                 </div>
               </div>
@@ -550,8 +565,31 @@ export function AdminOrders() {
     <div className="h-full flex flex-col">
       <div className="flex flex-col mb-6 gap-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <h2 className="font-black text-xl text-gray-800 tracking-tight">Gestão de Pedidos</h2>
+            
+            <button
+               onClick={async () => {
+                 const current = !!config.whatsappApiConfig?.enabled;
+                 await updateConfig({
+                   whatsappApiConfig: {
+                     ...config.whatsappApiConfig,
+                     enabled: !current
+                   }
+                 });
+                 if (!current) toast.success("WhatsApp Conectado (Auto Ativado)");
+                 else toast.error("WhatsApp Desconectado (Auto Desativado)", { icon: '🚫' });
+               }}
+               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-widest uppercase transition-colors shadow-sm border ${
+                 config.whatsappApiConfig?.enabled 
+                 ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' 
+                 : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+               }`}
+            >
+               <MessageSquare className={`w-3.5 h-3.5 ${config.whatsappApiConfig?.enabled ? 'text-green-500' : 'text-gray-400'}`} />
+               {config.whatsappApiConfig?.enabled ? 'WPP Conectado' : 'WPP Desconectado'}
+            </button>
+
             <div className="flex bg-gray-100 p-1 rounded-xl">
               <button 
                 onClick={() => setActiveTab('ativos')} 

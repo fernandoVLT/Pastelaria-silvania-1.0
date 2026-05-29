@@ -80,8 +80,12 @@ interface StoreConfig {
     autoPrint: boolean;
     autoPrintDelivery?: boolean;
     autoPrintPickup?: boolean;
+    usbPrinter?: {
+      vendorId: number;
+      productId: number;
+      name?: string;
+    };
   };
-  enabledPaymentMethods?: string[];
 }
 
 interface StoreContextType {

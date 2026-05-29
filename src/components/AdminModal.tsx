@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useStore } from '../contexts/StoreContext';
 import { Product } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
+import { requestUsbPrinter } from '../utils/printUsb';
 import { ImageUploadInput } from './ImageUploadInput';
 import { AdminOrders } from './AdminOrders';
 import { AdminReports } from './AdminReports';
@@ -391,6 +392,43 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                            <p className="text-[10px] text-blue-700 font-medium">
                               <strong>Dica de Impressão Silenciosa (Sem tela):</strong> Sistemas web sempre abrem a tela de confirmação de impressão por segurança. Para que a impressão vá <span className="underline">direto para a impressora</span>, você deve configurar o <strong>Modo Kiosk</strong> no atalho do seu Google Chrome (adicionando <code>--kiosk-printing</code> no atalho do atalho).
                            </p>
+                        </div>
+                        <div className="mt-2 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                          <h5 className="text-[10px] uppercase font-bold tracking-widest text-gray-700 mb-2">Impressão Direta USB / HID</h5>
+                          <p className="text-[10px] text-gray-500 mb-3">Conecte sua impressora térmica via USB para imprimir automaticamente, sem abrir a janela do navegador.</p>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const device = await requestUsbPrinter();
+                                  setFormConfig({
+                                    ...formConfig,
+                                    printConfig: {
+                                      ...formConfig.printConfig,
+                                      autoPrint: formConfig.printConfig?.autoPrint ?? true,
+                                      usbPrinter: {
+                                        vendorId: device.vendorId,
+                                        productId: device.productId,
+                                        name: device.productName || 'Impressora USB'
+                                      }
+                                    }
+                                  });
+                                } catch (e) {
+                                  alert('Não foi possível conectar: ' + (e as Error).message);
+                                }
+                              }}
+                              className="px-4 py-2 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-gray-800 transition-colors"
+                            >
+                              Selecionar Impressora
+                            </button>
+                            {formConfig.printConfig?.usbPrinter && (
+                              <div className="text-xs font-bold text-green-600 flex items-center gap-1.5">
+                                <Check className="w-4 h-4" />
+                                {formConfig.printConfig.usbPrinter.name}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
