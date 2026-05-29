@@ -13,11 +13,11 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static(join(__dirname, 'dist')));
 
 // Redirecionar todas as outras requisições para o index.html (para o React Router funcionar)
-app.get('*', (req, res) => {
+app.get('*all', (req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
 // A Hostinger requer que a aplicação escute nesta porta
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
