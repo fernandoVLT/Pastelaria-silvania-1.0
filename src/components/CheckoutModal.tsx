@@ -38,9 +38,6 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   const [street, setStreet] = useState('');
   const [addressNumber, setAddressNumber] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
-  const [isScheduled, setIsScheduled] = useState(false);
-  const [scheduledDate, setScheduledDate] = useState('');
-  const [scheduledTime, setScheduledTime] = useState('');
   const [isOrderSent, setIsOrderSent] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -60,18 +57,12 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       }
     }
 
-    if (isScheduled && (!scheduledDate || !scheduledTime)) {
-      alert('Preencha a data e horário para o agendamento.');
-      return;
-    }
-
     setIsCreating(true);
 
     const orderItems = items.map(i => ({
       productName: i.product.name,
       quantity: i.quantity,
-      price: i.product.price,
-      observation: i.observation
+      price: i.product.price
     }));
 
     try {
@@ -101,59 +92,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
         };
       }
 
-      if (isScheduled) {
-        orderData.scheduledDate = scheduledDate;
-        orderData.scheduledTime = scheduledTime;
-      }
-
       await createOrder(orderData);
-
-      // Send to WhatsApp
-      let text = config.whatsappMessages?.newOrder ? `${config.whatsappMessages.newOrder}\n\n` : `*NOVO PEDIDO - ${config.logoText.toUpperCase()}* 🛍️\n\n`;
-      text += `*Cliente:* ${name.trim()}\n`;
-      if (isScheduled) {
-        text += `*🗓️ AGENDADO PARA:* ${scheduledDate.split('-').reverse().join('/')} às ${scheduledTime}\n`;
-      }
-      text += `*Forma de Entrega:* ${orderType}\n`;
-      if (orderType === 'Delivery') {
-        text += `*Endereço:* ${neighborhood} - ${street.trim()}, ${addressNumber.trim()}\n`;
-      } else {
-        text += `*Endereço: Retirar no Local* (Rua Lobo Leite, n°100 - Primeiro de Maio)\n`;
-      }
-      text += `*Pagamento:* ${paymentMethod}\n\n`;
-      text += `*ITENS DO PEDIDO:*\n`;
-      
-      items.forEach(item => {
-        text += `${item.quantity}x ${item.product.name}\n`;
-        if (item.observation) {
-          text += `  _Obs: ${item.observation}_\n`;
-        }
-        text += `  *${formatCurrency(item.product.price * item.quantity)}*\n\n`;
-      });
-
-      if (orderType === 'Delivery') {
-        text += `*Subtotal:* ${formatCurrency(itemsTotal)}\n`;
-        text += `*Taxa de Entrega:* ${formatCurrency(deliveryFee)}\n`;
-        if (config.deliveryTimeType === 'fixed' && config.fixedDeliveryTime) {
-           text += `*Tempo Estimado:* ~${config.fixedDeliveryTime} minutos\n`;
-        } else if (config.deliveryTimeType === 'range' && config.minDeliveryTime && config.maxDeliveryTime) {
-           text += `*Tempo Estimado:* ${config.minDeliveryTime} a ${config.maxDeliveryTime} minutos\n`;
-        }
-      }
-      text += `*TOTAL A PAGAR:* ${formatCurrency(finalTotal)}`;
-
-      const storePhone = (config.whatsappNumber || '').replace(/\D/g, '');
-      let destPhone = storePhone;
-      if (!destPhone.startsWith('55')) destPhone = `55${destPhone}`;
-      const url = `https://wa.me/${destPhone}?text=${encodeURIComponent(text)}`;
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
 
       recordSale(items.map(i => ({ productId: i.product.id, quantity: i.quantity })));
       setIsOrderSent(true);
@@ -398,39 +337,94 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
               )}
             </div>
 
-            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mt-6">
-              <div className="flex items-center gap-3 mb-4">
-                <input
-                  type="checkbox"
-                  checked={isScheduled}
-                  onChange={e => setIsScheduled(e.target.checked)}
-                  id="scheduleOrder"
-                  className="w-5 h-5 rounded border-gray-300 text-brand-red focus:ring-brand-red"
-                />
-                <label htmlFor="scheduleOrder" className="text-sm font-bold text-gray-900 cursor-pointer">Agendar Pedido (Entregar/Retirar Numa Data e Hora Futuras)</label>
+            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+              <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-4">Forma de Pagamento *</label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {PAYMENT_METHODS.map((method) => {
+                  const methodConfig = 
+                    method === 'Pix' ? { Icon: QrCode, color: 'text-teal-500', bg: 'bg-teal-50', border: 'border-teal-500' } :
+                    method === 'Cartão de Crédito' ? { Icon: CreditCard, color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-500' } :
+                    method === 'Cartão de Débito' ? { Icon: Wallet, color: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-500' } :
+                    { Icon: Utensils, color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-500' };
+                  
+                  const { Icon, color, bg, border } = methodConfig;
+                  const isSelected = paymentMethod === method;
+                  
+                  return (
+                    <button
+                      key={method}
+                      onClick={() => setPaymentMethod(method)}
+                      className={`relative border-2 rounded-xl p-4 text-[9px] font-black tracking-widest uppercase transition-all flex flex-col items-center justify-center gap-3 text-center h-28 ${
+                        isSelected 
+                          ? `${border} ${color} ${bg} shadow-md scale-105 z-10 ring-4 ring-${color.split('-')[1]}-500/20` 
+                          : 'border-gray-200 text-gray-400 bg-white hover:border-gray-300 hover:bg-gray-50 hover:text-gray-600'
+                      }`}
+                    >
+                      <Icon className={`w-8 h-8 transition-colors ${isSelected ? color : 'text-gray-300 group-hover:text-gray-500'}`} />
+                      <span>{method}</span>
+                      {isSelected && (
+                         <div className={`absolute -top-2 -right-2 w-5 h-5 rounded-full ${bg} border-2 ${border} flex items-center justify-center`}>
+                           <div className={`w-2 h-2 rounded-full ${bg.replace('50', '500')}`}></div>
+                         </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
               
-              {isScheduled && (
-                <div className="grid grid-cols-2 gap-4 animate-in fade-in duration-300 mt-4">
-                  <div>
-                    <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Data *</label>
-                    <input 
-                      type="date"
-                      value={scheduledDate}
-                      onChange={e => setScheduledDate(e.target.value)}
-                      min={new Date().toLocaleDateString('en-CA')}
-                      className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 text-sm focus:ring-2 focus:ring-brand-red focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Horário *</label>
-                    <input 
-                      type="time"
-                      value={scheduledTime}
-                      onChange={e => setScheduledTime(e.target.value)}
-                      className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 text-sm focus:ring-2 focus:ring-brand-red focus:outline-none"
-                    />
-                  </div>
+              {/* Payment Context Options */}
+              {paymentMethod && (
+                <div className="mt-6 p-4 bg-white rounded-xl border border-gray-100 flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
+                  {paymentMethod === 'Pix' && (
+                    <div className="flex flex-col items-center text-center w-full">
+                       <p className="text-xs text-gray-500 mb-4 font-medium">Escaneie o QR Code ou use o código Copia e Cola para pagar via Pix</p>
+                       <div className="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm mb-4">
+                         <QRCodeSVG value={pixPayload} size={160} level="M" includeMargin={true} />
+                       </div>
+                       
+                       <div className="w-full flex flex-col gap-2 mb-4">
+                          <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Pix Copia e Cola</label>
+                          <div className="flex w-full">
+                             <input 
+                               type="text" 
+                               readOnly 
+                               value={pixPayload} 
+                               className="flex-1 bg-gray-50 border border-r-0 border-gray-200 rounded-l-xl p-3 text-gray-900 text-xs focus:outline-none"
+                             />
+                             <button 
+                               onClick={() => {
+                                 navigator.clipboard.writeText(pixPayload);
+                                 alert('Código Copia e Cola copiado com sucesso!');
+                               }}
+                               className="px-4 bg-brand-red text-white flex items-center justify-center rounded-r-xl tracking-widest uppercase text-[10px] font-bold hover:bg-brand-red-dark transition-colors"
+                             >
+                                <Copy className="w-4 h-4" />
+                             </button>
+                          </div>
+                       </div>
+ 
+                       {config.pixKey && (
+                         <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">
+                           Chave: <span className="text-gray-900 select-all">{config.pixKey}</span>
+                         </p>
+                       )}
+                       {(config.pixReceiverName || config.pixReceiverCity) && (
+                         <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mt-1">
+                           Recebedor: <span className="text-gray-900">{config.pixReceiverName} {config.pixReceiverCity ? ` - ${config.pixReceiverCity}` : ''}</span>
+                         </p>
+                       )}
+                    </div>
+                  )}
+                  
+                  {(paymentMethod === 'Cartão de Crédito' || paymentMethod === 'Cartão de Débito' || paymentMethod === 'Vale Alimentação') && (
+                    <div className="flex flex-col items-center text-center py-4">
+                      <p className="text-xs text-gray-500 mb-6 font-medium">Lembre-se de preparar seu cartão na entrega/retirada.</p>
+                      <div className="flex items-center gap-2 bg-gray-100 text-gray-600 px-6 py-3 rounded-full text-xs font-bold tracking-widest uppercase transition-colors shadow-sm">
+                        <Wallet className="w-4 h-4" />
+                        Aguardando Pagamento Presencial
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

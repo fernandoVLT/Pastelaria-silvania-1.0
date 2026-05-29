@@ -88,6 +88,8 @@ export function AdminOrders() {
     if (loading) return;
     
     const autoPrintEnabled = config.printConfig?.autoPrint ?? true;
+    const autoPrintDelivery = config.printConfig?.autoPrintDelivery ?? true;
+    const autoPrintPickup = config.printConfig?.autoPrintPickup ?? true;
     
     // Check for new orders in 'Feito' status that haven't been printed yet
     const unprintedNewOrders = orders.filter(
@@ -100,7 +102,10 @@ export function AdminOrders() {
           if (!printedOrdersRef.current.has(order.id!)) {
             printedOrdersRef.current.add(order.id!);
             if (autoPrintEnabled) {
-              handlePrint(order);
+              const isDelivery = order.orderType === 'Delivery';
+              if ((isDelivery && autoPrintDelivery) || (!isDelivery && autoPrintPickup)) {
+                handlePrint(order);
+              }
             }
           }
         });
@@ -114,7 +119,7 @@ export function AdminOrders() {
        }
     });
 
-  }, [orders, loading, config.printConfig?.autoPrint]);
+  }, [orders, loading, config.printConfig?.autoPrint, config.printConfig?.autoPrintDelivery, config.printConfig?.autoPrintPickup]);
 
   const filteredOrders = orders.filter(order => {
     const orderDate = new Date(order.createdAt);
@@ -179,9 +184,6 @@ export function AdminOrders() {
     let itemsTxt = '\\n\\n*Resumo do Pedido:*\\n';
     order.items.forEach(item => {
       itemsTxt += `• ${item.quantity}x ${item.productName}\\n`;
-      if (item.observation) {
-        itemsTxt += `  _Obs: ${item.observation}_\\n`;
-      }
     });
     
     if (order.orderType === 'Delivery' && order.address) {
@@ -209,9 +211,12 @@ export function AdminOrders() {
         // Use intent URI so it doesn't open a new browser tab and leaves the admin screen intact
         window.location.href = `whatsapp://send?phone=${phoneStr}&text=${text}`;
       } else {
-        // Use popup or new tab on desktop
-        const url = `https://api.whatsapp.com/send?phone=${phoneStr}&text=${text}`;
-        window.open(url, '_blank', 'noopener,noreferrer');
+        // Use intent URI for desktop as well if they have WhatsApp installed
+        const popup = window.open(`https://web.whatsapp.com/send?phone=${phoneStr}&text=${text}`, 'whatsapp_popup', 'width=800,height=600');
+        if (!popup) {
+           // Fallback to regular WA web
+           window.open(`https://api.whatsapp.com/send?phone=${phoneStr}&text=${text}`, '_blank', 'noopener,noreferrer');
+        }
       }
     }
   };
@@ -349,13 +354,24 @@ export function AdminOrders() {
                 <div className="flex gap-1 shrink-0">
                   <button 
                     title="Enviar mensagem no WhatsApp"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       let phoneStr = '';
                       if (order.customerPhone) {
                         phoneStr = order.customerPhone.replace(/\D/g, '');
                         if (!phoneStr.startsWith('55')) phoneStr = `55${phoneStr}`;
                       }
-                      window.open(`https://wa.me/${phoneStr}?text=${getWhatsAppMessage(order)}`, '_blank')
+                      const text = getWhatsAppMessage(order);
+                      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                      
+                      if (isMobile) {
+                        window.location.href = `whatsapp://send?phone=${phoneStr}&text=${text}`;
+                      } else {
+                        const popup = window.open(`https://web.whatsapp.com/send?phone=${phoneStr}&text=${text}`, 'whatsapp_popup', 'width=800,height=600');
+                        if (!popup) {
+                           window.open(`https://api.whatsapp.com/send?phone=${phoneStr}&text=${text}`, '_blank', 'noopener,noreferrer');
+                        }
+                      }
                     }} 
                     className="p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-lg transition-colors"
                   >

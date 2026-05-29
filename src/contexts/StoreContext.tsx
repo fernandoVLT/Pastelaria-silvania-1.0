@@ -69,6 +69,8 @@ interface StoreConfig {
   };
   printConfig?: {
     autoPrint: boolean;
+    autoPrintDelivery?: boolean;
+    autoPrintPickup?: boolean;
   };
 }
 

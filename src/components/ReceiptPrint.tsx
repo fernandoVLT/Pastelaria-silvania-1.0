@@ -10,7 +10,7 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
   if (!order) return null;
 
   const renderVia = (type: 'kitchen' | 'dispatch') => (
-    <div className="receipt-via" style={{ marginBottom: type === 'kitchen' ? '40px' : '0' }}>
+    <div className="receipt-via">
       <div className="receipt-header">
         <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 5px' }}>
           Pastelaria da Silvânia
@@ -34,7 +34,6 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
           <div key={idx} className="flex justify-between items-start text-xs mb-1">
             <div style={{ flex: 1, paddingRight: '10px' }}>
               <strong>{item.quantity}x</strong> {item.productName}
-              {item.notes && <div style={{ fontSize: '10px', fontStyle: 'italic', marginLeft: '15px' }}>Obs: {item.notes}</div>}
             </div>
             {type === 'dispatch' && <div>{formatCurrency(item.price * item.quantity)}</div>}
           </div>
@@ -91,13 +90,17 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
           @media print {
             body { margin: 0; padding: 0; background: #fff !important; }
             .receipt-container { width: 100% !important; max-width: 80mm !important; margin: 0 auto; }
+            .page-break { page-break-after: always; break-after: page; }
           }
           .receipt-container * { box-sizing: border-box; }
         `}
       </style>
-      {renderVia('kitchen')}
-      <div style={{ textAlign: 'center', borderTop: '1px dashed #000', margin: '40px 0', paddingTop: '20px', fontSize: '10px' }}>✂️ CORTAR AQUI ✂️</div>
-      {renderVia('dispatch')}
+      <div className="page-break">
+        {renderVia('kitchen')}
+      </div>
+      <div>
+        {renderVia('dispatch')}
+      </div>
     </div>
   );
 });

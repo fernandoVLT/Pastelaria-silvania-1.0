@@ -13,7 +13,6 @@ interface Props {
 export function ProductModal({ product, onClose, onAdd }: Props) {
   const { addReview } = useStore();
   const [quantity, setQuantity] = useState(1);
-  const [observation, setObservation] = useState('');
 
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewName, setReviewName] = useState('');
@@ -23,7 +22,7 @@ export function ProductModal({ product, onClose, onAdd }: Props) {
     onAdd({
       product,
       quantity,
-      observation
+      observation: ''
     });
     onClose();
   };
@@ -81,16 +80,6 @@ export function ProductModal({ product, onClose, onAdd }: Props) {
           {product.description && (
             <p className="text-gray-600 text-xs uppercase leading-loose mb-8 font-medium">{product.description}</p>
           )}
-
-          <div className="mb-8">
-            <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-3">Alguma observação?</label>
-            <textarea
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red focus:border-brand-red resize-none h-24 text-sm font-mono placeholder:text-gray-400 placeholder:font-sans placeholder:tracking-widest"
-              placeholder="EX: RETIRAR CEBOLA..."
-              value={observation}
-              onChange={(e) => setObservation(e.target.value)}
-            />
-          </div>
 
           <hr className="border-gray-100 mb-8" />
 

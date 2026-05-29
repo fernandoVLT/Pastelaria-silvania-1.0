@@ -367,6 +367,28 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                         <div className="text-[10px] text-gray-500">Enviar novos pedidos automaticamente para a impressora.</div>
                       </div>
                     </div>
+                    {(formConfig.printConfig?.autoPrint ?? true) && (
+                      <div className="pl-8 flex flex-col gap-3 mt-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formConfig.printConfig?.autoPrintDelivery ?? true}
+                            onChange={e => setFormConfig({...formConfig, printConfig: { ...formConfig.printConfig, autoPrint: formConfig.printConfig?.autoPrint ?? true, autoPrintDelivery: e.target.checked }})}
+                            className="w-4 h-4 rounded border-gray-300 text-brand-red focus:ring-brand-red"
+                          />
+                          <span className="text-xs text-gray-700">Imprimir pedidos de <strong>Delivery</strong></span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formConfig.printConfig?.autoPrintPickup ?? true}
+                            onChange={e => setFormConfig({...formConfig, printConfig: { ...formConfig.printConfig, autoPrint: formConfig.printConfig?.autoPrint ?? true, autoPrintPickup: e.target.checked }})}
+                            className="w-4 h-4 rounded border-gray-300 text-brand-red focus:ring-brand-red"
+                          />
+                          <span className="text-xs text-gray-700">Imprimir pedidos de <strong>Retirada</strong></span>
+                        </label>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div>
