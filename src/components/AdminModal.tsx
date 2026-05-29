@@ -387,6 +387,11 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                           />
                           <span className="text-xs text-gray-700">Imprimir pedidos de <strong>Retirada</strong></span>
                         </label>
+                        <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                           <p className="text-[10px] text-blue-700 font-medium">
+                              <strong>Dica de Impressão Silenciosa (Sem tela):</strong> Sistemas web sempre abrem a tela de confirmação de impressão por segurança. Para que a impressão vá <span className="underline">direto para a impressora</span>, você deve configurar o <strong>Modo Kiosk</strong> no atalho do seu Google Chrome (adicionando <code>--kiosk-printing</code> no atalho do atalho).
+                           </p>
+                        </div>
                       </div>
                     )}
                   </div>

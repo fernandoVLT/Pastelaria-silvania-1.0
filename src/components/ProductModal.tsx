@@ -13,6 +13,7 @@ interface Props {
 export function ProductModal({ product, onClose, onAdd }: Props) {
   const { addReview } = useStore();
   const [quantity, setQuantity] = useState(1);
+  const [observation, setObservation] = useState('');
 
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewName, setReviewName] = useState('');
@@ -22,7 +23,7 @@ export function ProductModal({ product, onClose, onAdd }: Props) {
     onAdd({
       product,
       quantity,
-      observation: ''
+      observation: observation.trim()
     });
     onClose();
   };
@@ -80,6 +81,27 @@ export function ProductModal({ product, onClose, onAdd }: Props) {
           {product.description && (
             <p className="text-gray-600 text-xs uppercase leading-loose mb-8 font-medium">{product.description}</p>
           )}
+
+          <hr className="border-gray-100 mb-8" />
+
+          {/* Observações / Adicionais */}
+          <div className="mb-8">
+            <h4 className="font-black text-sm uppercase tracking-widest text-gray-900 mb-4 flex items-center gap-2">
+              Observações / Adicionais
+            </h4>
+            {product.category.toLowerCase().includes('past') ? (
+              <div className="p-4 bg-red-50 border border-red-100 rounded-xl">
+                <p className="text-xs text-red-600 font-bold uppercase tracking-widest text-center">Pastéis não podem ser feitos com acréscimos ou adicionais.</p>
+              </div>
+            ) : (
+              <textarea 
+                placeholder="Ex: Tirar cebola, adicional de bacon..."
+                value={observation}
+                onChange={(e) => setObservation(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm h-24 resize-none focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent placeholder:text-gray-400 font-medium"
+              />
+            )}
+          </div>
 
           <hr className="border-gray-100 mb-8" />
 
