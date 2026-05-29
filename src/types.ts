@@ -59,4 +59,5 @@ export interface Order {
   scheduledDate?: string;
   scheduledTime?: string;
   cancellationReason?: string;
+  statusLog?: { status: OrderStatus; timestamp: number; user?: string }[];
 }

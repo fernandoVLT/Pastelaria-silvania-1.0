@@ -5,7 +5,9 @@ import { formatCurrency } from '../utils/formatCurrency';
 import { Printer, MapPin, Phone, MessageSquare, Clock, Calendar, Store, Check, Bike, Timer as TimerIcon } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { motion, AnimatePresence } from 'motion/react';
-
+import { useReactToPrint } from 'react-to-print';
+import { ReceiptPrint } from './ReceiptPrint';
+import toast from 'react-hot-toast';
 
 function ElapsedTimer({ startTime }: { startTime: number }) {
   const [elapsed, setElapsed] = useState(Date.now() - startTime);
@@ -52,10 +54,40 @@ export function AdminOrders() {
   const [historySearch, setHistorySearch] = useState<string>('');
 
   const printedOrdersRef = useRef<Set<string>>(new Set());
+  
+  const printRef = useRef<HTMLDivElement>(null);
+  const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
+  const [printQueue, setPrintQueue] = useState<Order[]>([]);
+
+  const executePrint = useReactToPrint({ 
+    contentRef: printRef,
+    onAfterPrint: () => {
+      setPrintingOrder(null);
+      setPrintQueue(prev => prev.slice(1));
+      toast.success('Impressão concluída.');
+    },
+    onPrintError: () => {
+      toast.error('Erro na impressão. Tente novamente.');
+      setPrintingOrder(null);
+      setPrintQueue(prev => prev.slice(1));
+    }
+  });
+
+  useEffect(() => {
+    // Process the print queue
+    if (printQueue.length > 0 && !printingOrder) {
+      setPrintingOrder(printQueue[0]);
+      setTimeout(() => {
+        executePrint();
+      }, 500); // Give it time to render the invisible component
+    }
+  }, [printQueue, printingOrder, executePrint]);
 
   useEffect(() => {
     // Only process when orders are loaded
     if (loading) return;
+    
+    const autoPrintEnabled = config.printConfig?.autoPrint ?? true;
     
     // Check for new orders in 'Feito' status that haven't been printed yet
     const unprintedNewOrders = orders.filter(
@@ -63,12 +95,13 @@ export function AdminOrders() {
     );
     
     if (unprintedNewOrders.length > 0) {
-      // Small timeout to ensure DOM is ready for html2canvas
       setTimeout(() => {
         unprintedNewOrders.forEach((order) => {
           if (!printedOrdersRef.current.has(order.id!)) {
             printedOrdersRef.current.add(order.id!);
-            handlePrint(order);
+            if (autoPrintEnabled) {
+              handlePrint(order);
+            }
           }
         });
       }, 500);
@@ -81,7 +114,7 @@ export function AdminOrders() {
        }
     });
 
-  }, [orders, loading]);
+  }, [orders, loading, config.printConfig?.autoPrint]);
 
   const filteredOrders = orders.filter(order => {
     const orderDate = new Date(order.createdAt);
@@ -127,20 +160,35 @@ export function AdminOrders() {
   });
 
   const getWhatsAppMessage = (order: Order, overrideStatus?: OrderStatus) => {
-    let msg = `Olá ${order.customerName}, sobre o seu pedido...`;
     const st = overrideStatus || order.status;
-    if (st === 'Feito') msg = config.whatsappMessages?.orderDone?.replace('{customerName}', order.customerName) || `Olá ${order.customerName}, recebemos o seu pedido!`;
-    else if (st === 'Em Preparo') msg = `Olá ${order.customerName}, seu pedido já foi para a cozinha e está sendo preparado!`;
+    let baseMsg = `Olá ${order.customerName}, sobre o seu pedido...`;
+    
+    if (st === 'Feito') baseMsg = config.whatsappMessages?.orderDone?.replace('{customerName}', order.customerName) || `Olá ${order.customerName}, recebemos o seu pedido!`;
+    else if (st === 'Em Preparo') baseMsg = `Olá ${order.customerName}, seu pedido já foi para a cozinha e está sendo preparado!`;
     else if (st === 'Pronto') {
       if (order.orderType === 'Delivery') {
-        msg = `Olá ${order.customerName}, seu pedido está pronto e saiu para entrega!`;
+        baseMsg = `Olá ${order.customerName}, seu pedido está pronto e saiu para entrega!`;
       } else {
-        msg = `Olá ${order.customerName}, seu pedido está pronto e já pode vir retirar!`;
+        baseMsg = `Olá ${order.customerName}, seu pedido está pronto e já pode vir retirar!`;
       }
     }
-    else if (st === 'A caminho') msg = config.whatsappMessages?.orderDispatched?.replace('{customerName}', order.customerName) || `Olá ${order.customerName}, seu pedido já saiu para entrega e está a caminho! 🛵💨`;
-    else if (st === 'Entregue') msg = config.whatsappMessages?.orderDelivered?.replace('{customerName}', order.customerName) || `Olá ${order.customerName}, seu pedido foi entregue. Muito obrigado pela preferência!`;
-    return encodeURIComponent(msg);
+    else if (st === 'A caminho') baseMsg = config.whatsappMessages?.orderDispatched?.replace('{customerName}', order.customerName) || `Olá ${order.customerName}, seu pedido já saiu para entrega e está a caminho! 🛵💨`;
+    else if (st === 'Entregue') baseMsg = config.whatsappMessages?.orderDelivered?.replace('{customerName}', order.customerName) || `Olá ${order.customerName}, seu pedido foi entregue. Muito obrigado pela preferência!`;
+    
+    // Build items summary
+    let itemsTxt = '\\n\\n*Resumo do Pedido:*\\n';
+    order.items.forEach(item => {
+      itemsTxt += `• ${item.quantity}x ${item.productName}\\n`;
+      if (item.observation) {
+        itemsTxt += `  _Obs: ${item.observation}_\\n`;
+      }
+    });
+    
+    if (order.orderType === 'Delivery' && order.address) {
+      itemsTxt += `\\n*Endereço:* ${order.address.street}, ${order.address.number} - ${order.address.neighborhood}`;
+    }
+    
+    return encodeURIComponent(baseMsg + itemsTxt);
   };
 
   const verifyWhatsAppAutomation = (order: Order, newStatus: OrderStatus) => {
@@ -153,8 +201,18 @@ export function AdminOrders() {
     if (shouldAutoSend && order.customerPhone) {
       let phoneStr = order.customerPhone.replace(/\D/g, '');
       if (!phoneStr.startsWith('55')) phoneStr = `55${phoneStr}`;
-      const url = `https://wa.me/${phoneStr}?text=${getWhatsAppMessage(order, newStatus)}`;
-      window.open(url, '_blank');
+      
+      const text = getWhatsAppMessage(order, newStatus);
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // Use intent URI so it doesn't open a new browser tab and leaves the admin screen intact
+        window.location.href = `whatsapp://send?phone=${phoneStr}&text=${text}`;
+      } else {
+        // Use popup or new tab on desktop
+        const url = `https://api.whatsapp.com/send?phone=${phoneStr}&text=${text}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
     }
   };
 
@@ -163,8 +221,11 @@ export function AdminOrders() {
       if (newStatus === 'Cancelado') {
         await updateOrderStatus(order.id!, newStatus, reason);
       } else {
-        await updateOrderStatus(order.id!, newStatus);
+        // Trigger WhatsApp automation synchronously before the async update
+        // to prevent modern browsers from blocking the popup
         verifyWhatsAppAutomation(order, newStatus);
+        
+        await updateOrderStatus(order.id!, newStatus);
       }
     } catch (e) {
       alert('Erro ao atualizar status do pedido');
@@ -177,130 +238,11 @@ export function AdminOrders() {
     setCancelingOrder(null);
   };
 
-  const handlePrint = async (order: Order) => {
-    const generateVia = (type: 'kitchen' | 'dispatch') => {
-      let qrCodeHtml = '';
-      if (type === 'dispatch') {
-         let wppLink = `https://wa.me/${(config.whatsappNumber || '').replace(/\D/g, '')}`;
-         if(!wppLink.includes('wa.me/55')) wppLink = wppLink.replace('wa.me/', 'wa.me/55');
-         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(wppLink)}`;
-         qrCodeHtml = `
-            <div style="text-align: center; margin-top: 15px; border-top: 1px dashed #000; padding-top: 15px;">
-              <img src="${qrUrl}" alt="QR WhatsApp" style="width: 80px; height: 80px;" crossorigin="anonymous" />
-              <div style="font-size: 10px; margin-top: 5px;">Aponte a câmera<br/>Fale conosco no WhatsApp</div>
-            </div>
-         `;
-      }
-
-      const itemsHtml = order.items.map(item => `
-        <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold; border-bottom: 1px dashed #ccc; padding-bottom: 5px;">
-          <span>${item.quantity}x ${item.productName}</span>
-          ${type === 'dispatch' ? `<span>${formatCurrency(item.price * item.quantity)}</span>` : ''}
-        </div>
-        ${item.observation ? `<div style="font-size: 12px; margin-bottom: 10px;">Obs: ${item.observation}</div>` : ''}
-      `).join('');
-
-      const addressHtml = order.orderType === 'Delivery' && order.address ? `
-        <div style="margin-top: 10px; padding: 10px; border: 1px solid #000;">
-          <strong>ENTREGA</strong><br/>
-          Bairro: ${order.address.neighborhood}<br/>
-          Rua: ${order.address.street}, Nº ${order.address.number}
-        </div>
-      ` : `
-        <div style="margin-top: 10px; padding: 10px; border: 1px solid #000;">
-          <strong>RETIRADA NO LOCAL</strong>
-        </div>
-      `;
-
-      return `
-        <div>
-            <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #000; padding-bottom: 10px;">
-              <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${config.logoText}</div>
-              <div style="font-size: 14px; font-weight: bold;">${type === 'kitchen' ? 'VIA COZINHA' : 'VIA CAIXA / MOTOBOY'}</div>
-              <div style="margin-top: 5px; font-size: 12px;">Pedido: ${order.id?.substring(0,6).toUpperCase()}</div>
-              <div style="font-size: 12px;">Data: ${new Date(order.createdAt).toLocaleString()}</div>
-            </div>
-            
-            <div style="margin-bottom: 15px; font-size: 14px; line-height: 1.5;">
-              <strong>Cliente:</strong> ${order.customerName}<br/>
-              ${type === 'dispatch' ? `<strong>Pagamento:</strong> ${order.paymentMethod}` : ''}
-            </div>
-
-            <div style="margin-bottom: 10px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 5px;">ITENS:</div>
-            
-            ${itemsHtml}
-
-            ${type === 'dispatch' ? `
-              <div style="margin-top: 15px; display: flex; justify-content: space-between;">
-                 <span>Subtotal:</span>
-                 <span>${formatCurrency(order.subtotal)}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between;">
-                 <span>Taxa Entrega:</span>
-                 <span>${formatCurrency(order.deliveryFee)}</span>
-              </div>
-              <div style="margin-top: 5px; font-size: 18px; font-weight: bold; display: flex; justify-content: space-between; border-top: 1px solid #000; padding-top: 5px;">
-                 <span>TOTAL:</span>
-                 <span>${formatCurrency(order.total)}</span>
-              </div>
-            ` : ''}
-
-            ${addressHtml}
-
-            ${qrCodeHtml}
-
-            <div style="text-align: center; margin-top: 30px; margin-bottom: 30px; font-size: 12px;">
-              -- Fim da Via --
-            </div>
-        </div>
-      `;
-    };
-
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-    
-    iframe.contentWindow?.document.open();
-    iframe.contentWindow?.document.write(`
-      <html>
-        <head>
-          <title>Pedido_${order.id?.substring(0,6)}</title>
-          <style>
-             body { 
-               font-family: monospace; 
-               margin: 0; 
-               padding: 10px; 
-               width: 300px;
-               color: #000000;
-               background-color: #ffffff;
-             }
-             @media print {
-               @page { margin: 0; }
-               body { padding: 0; }
-             }
-          </style>
-        </head>
-        <body>
-          ${generateVia('kitchen')}
-          <div style="text-align: center; border-top: 1px dashed #000; margin: 40px 0; padding-top: 20px; font-size: 10px;">✂️ CORTAR AQUI ✂️</div>
-          ${generateVia('dispatch')}
-        </body>
-      </html>
-    `);
-    iframe.contentWindow?.document.close();
-    
-    try {
-      setTimeout(() => {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-        }, 3000);
-      }, 500);
-    } catch (e) {
-      console.error('Erro ao gerar impressão', e);
-      alert('Houve um erro ao gerar a impressão. Tente novamente.');
-      document.body.removeChild(iframe);
+  const handlePrint = (order: Order) => {
+    // Check if the order is already in the queue to prevent duplicates
+    if (!printQueue.some(o => o.id === order.id)) {
+      toast.success('Enviando para impressora...');
+      setPrintQueue(prev => [...prev, order]);
     }
   };
 
@@ -430,6 +372,29 @@ export function AdminOrders() {
                   )}
                 </div>
               </div>
+
+              {/* Status Audit Log */}
+              {order.statusLog && order.statusLog.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-100/50">
+                  <details className="group cursor-pointer">
+                    <summary className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1 select-none">
+                      <span>Histórico de Status</span>
+                      <svg className="w-3 h-3 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </summary>
+                    <div className="mt-2 space-y-2">
+                      {[...order.statusLog].sort((a, b) => b.timestamp - a.timestamp).map((log, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-[10px] text-gray-500 bg-gray-50/50 p-1.5 rounded">
+                          <span className="font-medium text-gray-700">{log.status}</span>
+                          <div className="flex gap-2 items-center">
+                            <span className="opacity-75">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span className="bg-gray-200 px-1 py-0.5 rounded text-[8px] uppercase tracking-wider text-gray-600">{log.user || 'Sistema'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="mt-2 pt-3 border-t border-gray-200/50 flex flex-wrap gap-2">
@@ -621,6 +586,11 @@ export function AdminOrders() {
           </div>
         </div>
       )}
+
+      {/* Hidden Print Component */}
+      <div style={{ display: 'none' }}>
+        <ReceiptPrint ref={printRef} order={printingOrder} />
+      </div>
     </div>
   );
 }

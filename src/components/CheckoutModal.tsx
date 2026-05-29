@@ -86,6 +86,11 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
         total: finalTotal,
         status: 'Feito',
         createdAt: Date.now(),
+        statusLog: [{
+          status: 'Feito',
+          timestamp: Date.now(),
+          user: 'Cliente (App)'
+        }]
       };
 
       if (orderType === 'Delivery') {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Order, OrderStatus } from '../types';
 import toast from 'react-hot-toast';
@@ -26,7 +26,8 @@ export function useOrders() {
       }
 
       const orderList = snapshot.docs.map(doc => ({
-        ...doc.data()
+        ...doc.data(),
+        id: doc.id
       } as Order));
       setOrders(orderList);
       setLoading(false);
@@ -39,7 +40,14 @@ export function useOrders() {
   const updateOrderStatus = async (orderId: string, newStatus: OrderStatus, cancellationReason?: string) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
-      const updateData: any = { status: newStatus };
+      const updateData: any = { 
+        status: newStatus,
+        statusLog: arrayUnion({
+          status: newStatus,
+          timestamp: Date.now(),
+          user: 'Atendente'
+        })
+      };
       if (cancellationReason) {
         updateData.cancellationReason = cancellationReason;
       }

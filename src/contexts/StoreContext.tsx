@@ -67,6 +67,9 @@ interface StoreConfig {
     orderDispatched?: boolean;
     orderDelivered?: boolean;
   };
+  printConfig?: {
+    autoPrint: boolean;
+  };
 }
 
 interface StoreContextType {

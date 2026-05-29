@@ -353,6 +353,21 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                       </div>
                     )}
                   </div>
+
+                  <div className="flex flex-col gap-4 bg-gray-50 border border-gray-200 rounded-xl p-4 mt-4">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={formConfig.printConfig?.autoPrint ?? true}
+                        onChange={e => setFormConfig({...formConfig, printConfig: { ...formConfig.printConfig, autoPrint: e.target.checked }})}
+                        className="w-5 h-5 rounded border-gray-300 text-brand-red focus:ring-brand-red cursor-pointer"
+                      />
+                      <div>
+                        <div className="text-sm font-bold text-gray-900">Impressão Automática (Novos Pedidos)</div>
+                        <div className="text-[10px] text-gray-500">Enviar novos pedidos automaticamente para a impressora.</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Senha do Admin</label>
