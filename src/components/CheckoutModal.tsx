@@ -96,6 +96,21 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       await createOrder(orderData);
 
       recordSale(items.map(i => ({ productId: i.product.id, quantity: i.quantity })));
+      
+      const wppMessage = `*Novo Pedido!* 🛒\n\n` + 
+        `*Cliente:* ${name.trim()}\n` +
+        `*WhatsApp:* ${phone.trim()}\n` +
+        `*Tipo:* ${orderType}\n` +
+        (orderType === 'Delivery' ? `*Endereço:* ${street.trim()}, ${addressNumber.trim()} - ${neighborhood}\n` : '') +
+        `*Pagamento:* ${paymentMethod}\n\n` +
+        `*Itens:* \n${items.map(i => `${i.quantity}x ${i.product.name} (R$ ${formatCurrency(i.product.price)})`).join('\n')}\n\n` +
+        `*Subtotal:* ${formatCurrency(itemsTotal)}\n` +
+        (orderType === 'Delivery' ? `*Taxa de Entrega:* ${formatCurrency(deliveryFee)}\n` : '') +
+        `*Total:* ${formatCurrency(finalTotal)}`;
+
+      const wpUrl = `https://wa.me/${config.whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(wppMessage)}`;
+      window.open(wpUrl, '_blank');
+      
       setIsOrderSent(true);
     } catch (e) {
       alert('Houve um erro ao enviar seu pedido. Tente novamente.');
