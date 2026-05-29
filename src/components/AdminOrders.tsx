@@ -4,8 +4,6 @@ import { Order, OrderStatus } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
 import { Printer, MapPin, Phone, MessageSquare, Clock, Calendar, Store, Check, Bike, Timer as TimerIcon } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'motion/react';
 
 
@@ -258,49 +256,51 @@ export function AdminOrders() {
       `;
     };
 
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = '300px';
-    container.style.backgroundColor = '#ffffff';
-    container.style.color = '#000000';
-    container.style.fontFamily = 'monospace';
-    container.style.padding = '15px';
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
     
-    container.innerHTML = `
-      ${generateVia('kitchen')}
-      <div style="text-align: center; border-top: 1px dashed #000; margin: 40px 0; padding-top: 20px; font-size: 10px;">✂️ CORTAR AQUI ✂️</div>
-      ${generateVia('dispatch')}
-    `;
-    
-    document.body.appendChild(container);
+    iframe.contentWindow?.document.open();
+    iframe.contentWindow?.document.write(`
+      <html>
+        <head>
+          <title>Pedido_${order.id?.substring(0,6)}</title>
+          <style>
+             body { 
+               font-family: monospace; 
+               margin: 0; 
+               padding: 10px; 
+               width: 300px;
+               color: #000000;
+               background-color: #ffffff;
+             }
+             @media print {
+               @page { margin: 0; }
+               body { padding: 0; }
+             }
+          </style>
+        </head>
+        <body>
+          ${generateVia('kitchen')}
+          <div style="text-align: center; border-top: 1px dashed #000; margin: 40px 0; padding-top: 20px; font-size: 10px;">✂️ CORTAR AQUI ✂️</div>
+          ${generateVia('dispatch')}
+        </body>
+      </html>
+    `);
+    iframe.contentWindow?.document.close();
     
     try {
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff'
-      });
-      
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: [80, (canvas.height * 80) / canvas.width] // Typical 80mm thermal receipt width
-      });
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Pedido_${order.id?.substring(0,6)}.pdf`);
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 3000);
+      }, 500);
     } catch (e) {
-      console.error('Erro ao gerar PDF', e);
-      alert('Houve um erro ao gerar o PDF. Tente novamente.');
-    } finally {
-      document.body.removeChild(container);
+      console.error('Erro ao gerar impressão', e);
+      alert('Houve um erro ao gerar a impressão. Tente novamente.');
+      document.body.removeChild(iframe);
     }
   };
 
