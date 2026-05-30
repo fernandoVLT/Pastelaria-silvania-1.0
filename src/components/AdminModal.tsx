@@ -396,37 +396,69 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                         <div className="mt-2 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
                           <h5 className="text-[10px] uppercase font-bold tracking-widest text-gray-700 mb-2">Impressão Direta USB / HID</h5>
                           <p className="text-[10px] text-gray-500 mb-3">Conecte sua impressora térmica via USB para imprimir automaticamente, sem abrir a janela do navegador.</p>
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                try {
-                                  const device = await requestUsbPrinter();
-                                  setFormConfig({
-                                    ...formConfig,
-                                    printConfig: {
-                                      ...formConfig.printConfig,
-                                      autoPrint: formConfig.printConfig?.autoPrint ?? true,
-                                      usbPrinter: {
-                                        vendorId: device.vendorId,
-                                        productId: device.productId,
-                                        name: device.productName || 'Impressora USB'
-                                      }
+                          <div className="flex flex-col gap-3">
+                            {formConfig.printConfig?.usbPrinter ? (
+                              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                                  <div>
+                                    <h6 className="text-[10px] font-bold text-green-800 uppercase tracking-widest flex items-center justify-start gap-1">
+                                      <Check className="w-3 h-3" />
+                                      {formConfig.printConfig.usbPrinter.name}
+                                    </h6>
+                                    <p className="text-[10px] text-green-600 mt-0.5">Status: Conectado e Ativo</p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm('Tem certeza que deseja desconectar a impressora?')) {
+                                      setFormConfig({
+                                        ...formConfig,
+                                        printConfig: {
+                                          ...formConfig.printConfig,
+                                          usbPrinter: undefined
+                                        }
+                                      });
                                     }
-                                  });
-                                } catch (e) {
-                                  alert('Não foi possível conectar: ' + (e as Error).message);
-                                }
-                              }}
-                              className="px-4 py-2 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-gray-800 transition-colors"
-                            >
-                              Selecionar Impressora
-                            </button>
-                            {formConfig.printConfig?.usbPrinter && (
-                              <div className="text-xs font-bold text-green-600 flex items-center gap-1.5">
-                                <Check className="w-4 h-4" />
-                                {formConfig.printConfig.usbPrinter.name}
+                                  }}
+                                  className="text-[10px] uppercase font-bold tracking-widest text-red-600 hover:text-red-800 transition-colors bg-red-100 hover:bg-red-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+                                >
+                                  <X className="w-3 h-3" />
+                                  Desconectar
+                                </button>
                               </div>
+                            ) : (
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      try {
+                                        const device = await requestUsbPrinter();
+                                        setFormConfig({
+                                          ...formConfig,
+                                          printConfig: {
+                                            ...formConfig.printConfig,
+                                            autoPrint: formConfig.printConfig?.autoPrint ?? true,
+                                            usbPrinter: {
+                                              vendorId: device.vendorId,
+                                              productId: device.productId,
+                                              name: device.productName || 'Impressora USB'
+                                            }
+                                          }
+                                        });
+                                      } catch (e) {
+                                        alert('Não foi possível conectar: ' + (e as Error).message);
+                                      }
+                                    }}
+                                    className="px-4 py-2 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-gray-800 transition-colors whitespace-nowrap"
+                                  >
+                                    Selecionar Impressora
+                                  </button>
+                                  <div className="text-[10px] text-gray-500 font-medium">
+                                    Nenhuma impressora configurada.
+                                  </div>
+                                </div>
                             )}
                           </div>
                         </div>

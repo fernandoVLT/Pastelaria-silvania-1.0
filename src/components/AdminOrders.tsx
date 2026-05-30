@@ -507,10 +507,10 @@ export function AdminOrders() {
                 )}
                 {order.status === 'Em Preparo' && (
                   <button 
-                    onClick={() => handleStatusChange(order, 'Pronto')}
+                    onClick={() => handleStatusChange(order, order.orderType === 'Delivery' ? 'A caminho' : 'Pronto')}
                     className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-1.5 rounded-md text-[9px] font-bold tracking-widest uppercase transition-colors"
                   >
-                    {order.orderType === 'Delivery' ? 'Saiu' : 'Retirar'}
+                    {order.orderType === 'Delivery' ? 'Saiu para Entrega' : 'Pronto p/ Retirar'}
                   </button>
                 )}
                 {order.status === 'Pronto' && (
@@ -518,7 +518,7 @@ export function AdminOrders() {
                     onClick={() => handleStatusChange(order, 'Entregue')}
                     className="flex-1 bg-green-500 hover:bg-green-600 text-white py-1.5 rounded-md text-[9px] font-bold tracking-widest uppercase transition-colors"
                   >
-                     {order.orderType === 'Delivery' ? 'Entregue' : 'Retirado'}
+                     Pedido Retirado
                   </button>
                 )}
                 
@@ -527,7 +527,7 @@ export function AdminOrders() {
                     onClick={() => handleStatusChange(order, 'Entregue')}
                     className="flex-1 bg-green-500 hover:bg-green-600 text-white py-1.5 rounded-md text-[9px] font-bold tracking-widest uppercase transition-colors"
                   >
-                    Concluir
+                    Pedido Entregue
                   </button>
                 )}
                 {['Feito', 'Em Preparo', 'A caminho', 'Pronto'].includes(order.status) && (
@@ -661,7 +661,8 @@ export function AdminOrders() {
         <div className="flex-1 overflow-x-auto pb-4 custom-scrollbar flex gap-6 snap-x snap-mandatory items-start">
           {renderColumn('Feito', 'Novos Pedidos')}
           {renderColumn('Em Preparo', 'Em Preparo')}
-          {renderColumn('Pronto', 'Prontos para Entrega/Retirada')}
+          {renderColumn('Pronto', 'Pronto (Retirada)')}
+          {renderColumn('A caminho', 'A Caminho')}
         </div>
       ) : (
         <div className="flex-1 overflow-x-auto pb-4 custom-scrollbar flex gap-6 snap-x snap-mandatory">

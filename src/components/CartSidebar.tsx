@@ -13,7 +13,7 @@ export function CartSidebar({ items, onRemove, onCheckout }: Props) {
 
   if (items.length === 0) {
     return (
-      <aside className="bg-white border border-gray-100 shadow-sm rounded-2xl p-8 flex flex-col h-[calc(100vh-160px)] sticky top-28 items-center justify-center text-center">
+      <aside className="bg-white border border-gray-100 shadow-sm rounded-2xl p-8 flex flex-col h-full md:h-[calc(100vh-160px)] md:sticky top-28 items-center justify-center text-center mt-auto mb-auto">
         <div className="w-20 h-20 bg-gray-50 border border-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-400 shadow-inner">
           <ShoppingBag className="w-8 h-8" />
         </div>
@@ -24,7 +24,7 @@ export function CartSidebar({ items, onRemove, onCheckout }: Props) {
   }
 
   return (
-    <aside className="bg-white border border-gray-100 shadow-sm rounded-2xl p-6 md:p-8 flex flex-col h-[60vh] md:h-[calc(100vh-160px)] sticky top-20 md:top-28">
+    <aside className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5 md:p-8 flex flex-col h-full min-h-[50vh] md:h-[calc(100vh-160px)] md:sticky top-20 md:top-28">
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-2xl font-black tracking-tight uppercase text-gray-900 flex items-center gap-3">
           <ShoppingBag className="w-6 h-6 text-brand-red" />

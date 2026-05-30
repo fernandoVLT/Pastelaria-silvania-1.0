@@ -115,9 +115,9 @@ export default function App() {
                 <span className="text-brand-red text-3xl">★</span>
                 Mais Vendidos
               </h2>
-              <div className="flex overflow-x-auto sm:grid sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 snap-x snap-mandatory scrollbar-hide">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                 {bestSellers.map(product => (
-                  <div key={product.id} className="min-w-[85vw] sm:min-w-0 snap-center flex flex-col h-full">
+                  <div key={product.id} className="flex flex-col h-full">
                     <ProductCard 
                       product={product} 
                       onClick={setSelectedProduct}
@@ -154,9 +154,9 @@ export default function App() {
               {searchQuery ? 'Resultados da busca' : showFavorites ? 'Meus Favoritos' : activeCategory}
             </h2>
             {/* Product Grid */}
-            <div className="flex overflow-x-auto sm:grid sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 snap-x snap-mandatory scrollbar-hide">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
               {activeProducts.map(product => (
-                <div key={product.id} className="min-w-[85vw] sm:min-w-0 snap-center flex flex-col h-full">
+                <div key={product.id} className="flex flex-col h-full">
                   <ProductCard 
                     product={product} 
                     onClick={setSelectedProduct}

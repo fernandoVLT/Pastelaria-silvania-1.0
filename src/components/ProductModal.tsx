@@ -28,9 +28,9 @@ export function ProductModal({ product, onClose, onAdd }: Props) {
   const decrement = () => setQuantity(q => Math.max(1, q - 1));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white border border-gray-100 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 min-h-[50vh] max-h-[90vh]">
-        <div className="flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white border-t sm:border border-gray-100 rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-in slide-in-from-bottom-full sm:zoom-in-95 duration-300 min-h-[50vh] max-h-[90vh]">
+        <div className="flex items-center justify-between p-5 sm:p-6 border-b border-gray-100 shrink-0">
           <h2 className="font-black text-xl tracking-tight uppercase text-gray-900">Detalhes</h2>
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">
             <X className="w-5 h-5" />
