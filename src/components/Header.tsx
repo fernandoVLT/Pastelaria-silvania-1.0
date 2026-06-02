@@ -1,4 +1,4 @@
-import { ShoppingBag, Search, Heart } from 'lucide-react';
+import { ShoppingBag, Search, Heart, ClipboardList } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { useState, useRef } from 'react';
 
@@ -9,9 +9,10 @@ interface Props {
   setSearchQuery: (q: string) => void;
   showFavorites: boolean;
   setShowFavorites: (show: boolean) => void;
+  onOpenCustomerOrders: () => void;
 }
 
-export function Header({ cartItemCount, onOpenMobileCart, searchQuery, setSearchQuery, showFavorites, setShowFavorites }: Props) {
+export function Header({ cartItemCount, onOpenMobileCart, searchQuery, setSearchQuery, showFavorites, setShowFavorites, onOpenCustomerOrders }: Props) {
   const { config } = useStore();
   const initials = config.logoText.substring(0, 2).toUpperCase();
 
@@ -51,6 +52,14 @@ export function Header({ cartItemCount, onOpenMobileCart, searchQuery, setSearch
             <a href="#" className="text-white hover:text-brand-yellow transition-colors">Início</a>
             <a href="#cardapio" className="text-white hover:text-brand-yellow transition-colors">Cardápio</a>
           </nav>
+          
+          <button 
+            onClick={onOpenCustomerOrders}
+            className="p-2 transition-colors text-white hover:text-brand-yellow relative"
+            title="Meus Pedidos"
+          >
+            <ClipboardList className="w-6 h-6" />
+          </button>
           
           <button 
             onClick={() => setShowFavorites(!showFavorites)}

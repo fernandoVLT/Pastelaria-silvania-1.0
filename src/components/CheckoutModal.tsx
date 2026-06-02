@@ -38,6 +38,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   const [neighborhood, setNeighborhood] = useState(ALLOWED_NEIGHBORHOODS[0]);
   const [street, setStreet] = useState('');
   const [addressNumber, setAddressNumber] = useState('');
+  const [observation, setObservation] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [isOrderSent, setIsOrderSent] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -47,6 +48,12 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   const finalTotal = itemsTotal + deliveryFee;
 
   const handleSubmitOrder = async () => {
+    const minOrder = config.minOrderValue || 20;
+    if (itemsTotal < minOrder) {
+      alert(`O pedido mínimo é de ${formatCurrency(minOrder)} em produtos.`);
+      return;
+    }
+
     if (!name.trim() || !phone.trim() || !paymentMethod) {
       alert('Preencha seu nome, WhatsApp e a forma de pagamento.');
       return;
@@ -63,6 +70,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
 
     const orderItems = items.map(i => ({
       productName: i.product.name,
+      category: i.product.category,
       quantity: i.quantity,
       price: i.product.price
     }));
@@ -93,21 +101,64 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
           number: addressNumber.trim()
         };
       }
+      
+      if (observation.trim()) {
+        orderData.observation = observation.trim();
+      }
 
-      await createOrder(orderData);
+      const orderId = await createOrder(orderData);
 
       recordSale(items.map(i => ({ productId: i.product.id, quantity: i.quantity })));
       
-      const wppMessage = `*Novo Pedido!* 🛒\n\n` + 
-        `*Cliente:* ${name.trim()}\n` +
-        `*WhatsApp:* ${phone.trim()}\n` +
-        `*Tipo:* ${orderType}\n` +
-        (orderType === 'Delivery' ? `*Endereço:* ${street.trim()}, ${addressNumber.trim()} - ${neighborhood}\n` : '') +
-        `*Pagamento:* ${paymentMethod}\n\n` +
-        `*Itens:* \n${items.map(i => `${i.quantity}x ${i.product.name} (R$ ${formatCurrency(i.product.price)})`).join('\n')}\n\n` +
-        `*Subtotal:* ${formatCurrency(itemsTotal)}\n` +
-        (orderType === 'Delivery' ? `*Taxa de Entrega:* ${formatCurrency(deliveryFee)}\n` : '') +
-        `*Total:* ${formatCurrency(finalTotal)}`;
+      const timeMessage = orderType === 'Delivery' 
+        ? (config.deliveryTimeType === 'fixed' 
+            ? `${config.fixedDeliveryTime} min` 
+            : `${config.minDeliveryTime} a ${config.maxDeliveryTime} min`)
+        : (config.deliveryTimeType === 'fixed'
+            ? `${config.fixedDeliveryTime} min`
+            : `${config.minPickupTime} a ${config.maxPickupTime} min`);
+
+      const shortOrderId = orderId.substring(0, 4).toUpperCase();
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('pt-BR');
+      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      let wppMessage = `#### NOVO PEDIDO ####\n\n`;
+      wppMessage += `#️⃣   Nº pedido: ${shortOrderId}\n`;
+      wppMessage += `feito em ${dateStr} ${timeStr}\n\n`;
+      wppMessage += `👤   ${name.trim()}\n`;
+      wppMessage += `📞   ${phone.trim()}\n\n`;
+      
+      if (orderType === 'Delivery') {
+        wppMessage += `📍   Entrega em:\n     ${street.trim()}, ${addressNumber.trim()} - ${neighborhood}\n\n`;
+      } else {
+        wppMessage += `📍   Retirar na loja\n\n`;
+      }
+      
+      wppMessage += `------- ITENS DO PEDIDO -------\n\n`;
+      
+      items.forEach(i => {
+        wppMessage += `*${i.quantity} x ${i.product.name}*\n`;
+        if (i.product.category) {
+          wppMessage += `  Categoria: ${i.product.category}\n`;
+        }
+        wppMessage += `💵 ${i.quantity} x ${formatCurrency(i.product.price)} = ${formatCurrency(i.quantity * i.product.price)}\n\n`;
+      });
+      
+      if (observation.trim()) {
+        wppMessage += `*Observações:*\n${observation.trim()}\n\n`;
+      }
+      
+      wppMessage += `-------------------------------\n\n`;
+      wppMessage += `SUBTOTAL: ${formatCurrency(itemsTotal)}\n`;
+      if (orderType === 'Delivery') {
+        wppMessage += `*TAXA DE ENTREGA: ${formatCurrency(deliveryFee)}*\n`;
+      }
+      wppMessage += `*VALOR FINAL: ${formatCurrency(finalTotal)}*\n\n`;
+      
+      wppMessage += `PAGAMENTO\n`;
+      wppMessage += `*${paymentMethod}*: ${formatCurrency(finalTotal)}\n\n`;
+      wppMessage += `⏱️ *Tempo Estimado:* ${timeMessage}`;
 
       const wpNumber = config.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';
       const wpUrl = `https://wa.me/${wpNumber}?text=${encodeURIComponent(wppMessage)}`;
@@ -137,8 +188,8 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
             <CheckCircle className="w-10 h-10" />
           </div>
           <h2 className="font-black text-2xl tracking-tight text-gray-900 mb-2">Pedido Enviado!</h2>
-          <p className="text-gray-500 text-sm mb-8 leading-relaxed">
-            Seu pedido foi registrado! Caso o WhatsApp não tenha aberto automaticamente, clique no botão abaixo.
+          <p className="text-gray-500 text-sm mb-8 leading-relaxed whitespace-pre-line">
+            {config.orderSuccessMessage || 'Seu pedido foi registrado! Caso o WhatsApp não tenha aberto automaticamente, clique no botão abaixo.'}
           </p>
           <div className="flex flex-col gap-3 w-full">
             <a 
@@ -277,6 +328,19 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                   </p>
                 </div>
               )}
+            </div>
+
+            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+              <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2 whitespace-normal leading-relaxed text-brand-red">
+                Mensagem de observação (Não é possível editar essa observação após envio)
+              </label>
+              <textarea
+                 rows={2}
+                 value={observation}
+                 onChange={(e) => setObservation(e.target.value)}
+                 placeholder="Ex: Tirar cebola, troco para 50..."
+                 className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-red text-sm placeholder:font-normal resize-none font-medium"
+              ></textarea>
             </div>
 
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">

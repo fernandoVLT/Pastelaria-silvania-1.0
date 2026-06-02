@@ -1,0 +1,87 @@
+import { X, Clock, ShoppingBag } from 'lucide-react';
+import { formatCurrency } from '../utils/formatCurrency';
+import { useStore } from '../contexts/StoreContext';
+import { useEffect, useState } from 'react';
+import { Order } from '../types';
+
+interface Props {
+  onClose: () => void;
+}
+
+export function CustomerOrdersModal({ onClose }: Props) {
+  const [orders, setOrders] = useState<Order[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('customer_orders');
+      if (saved) {
+        setOrders(JSON.parse(saved));
+      }
+    } catch(e) {}
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="bg-white border border-gray-100 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col h-[85vh] animate-in zoom-in-95 duration-300">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
+          <div className="flex items-center gap-3">
+            <h2 className="font-black text-xl tracking-tight uppercase text-gray-900">Meus Pedidos</h2>
+          </div>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 bg-gray-50 custom-scrollbar">
+          {orders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <ShoppingBag className="w-16 h-16 mb-4 opacity-50" />
+              <p className="font-bold uppercase tracking-widest text-sm">Nenhum pedido recente</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {orders.map((order, idx) => (
+                <div key={idx} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h4 className="font-bold text-gray-900">
+                        Pedido #{order.id?.substring(0,6).toUpperCase() || 'NOVO'}
+                      </h4>
+                      <p className="text-xs text-gray-500 font-medium">
+                        {new Date(order.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                      {order.status || 'Enviado'}
+                    </span>
+                  </div>
+                  <div className="space-y-2 mb-3">
+                    {order.items.map((item, i) => (
+                      <div key={i} className="flex justify-between items-center text-sm">
+                        <span className="text-gray-700">
+                          <span className="font-bold text-brand-red mr-2">{item.quantity}x</span>
+                          {item.productName}
+                        </span>
+                        <span className="font-medium text-gray-900 font-mono">
+                          {formatCurrency(item.price * item.quantity)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between items-center pt-3 border-t border-gray-100">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                      {order.orderType}
+                    </span>
+                    <span className="font-black text-gray-900 text-lg font-mono">
+                      {formatCurrency(order.total)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

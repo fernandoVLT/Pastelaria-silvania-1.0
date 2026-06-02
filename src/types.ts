@@ -36,6 +36,7 @@ export interface OrderItem {
   productName: string;
   quantity: number;
   price: number;
+  category?: string;
   observation?: string;
 }
 
@@ -44,6 +45,7 @@ export interface Order {
   customerName: string;
   customerPhone?: string;
   orderType: OrderType;
+  observation?: string;
   address?: {
     neighborhood: string;
     street: string;

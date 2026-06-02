@@ -26,16 +26,24 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
         <div><strong>Cliente:</strong> {order.customerName}</div>
         {order.customerPhone && <div><strong>Tel:</strong> {order.customerPhone}</div>}
         <div><strong>Tipo:</strong> {order.orderType}</div>
+        {order.observation && <div className="mt-1 font-bold border border-gray-400 p-1">OBS: {order.observation}</div>}
       </div>
 
       <div className="receipt-items mb-4 border-b border-dashed border-gray-400 pb-2">
         <div className="font-bold text-xs mb-2 uppercase">Itens do Pedido</div>
         {order.items.map((item, idx) => (
-          <div key={idx} className="flex justify-between items-start text-xs mb-1">
-            <div style={{ flex: 1, paddingRight: '10px' }}>
-              <strong>{item.quantity}x</strong> {item.productName}
+          <div key={idx} className="flex flex-col text-xs mb-2">
+            <div className="flex justify-between items-start">
+              <div style={{ flex: 1, paddingRight: '10px' }}>
+                <strong>{item.quantity}x</strong> {item.productName}
+              </div>
+              {type === 'dispatch' && <div>{formatCurrency(item.price * item.quantity)}</div>}
             </div>
-            {type === 'dispatch' && <div>{formatCurrency(item.price * item.quantity)}</div>}
+            {item.category && (
+              <div style={{ paddingLeft: '18px', fontSize: '10px', color: '#555', marginTop: '2px', fontWeight: 'bold' }}>
+                [{item.category}]
+              </div>
+            )}
           </div>
         ))}
       </div>

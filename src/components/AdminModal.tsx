@@ -283,6 +283,39 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                   )}
                 </div>
 
+                <div className="col-span-1 border-t border-gray-100 pt-6 mt-2">
+                  <h3 className="font-bold text-gray-900 mb-4 whitespace-nowrap">Tempo de Retirada</h3>
+                  
+                  {formConfig.deliveryTimeType === 'fixed' ? (
+                    <div>
+                        <span className="text-[10px] text-gray-500">(Utiliza o mesmo tempo fixo da entrega)</span>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Tempo Mínimo (min)</label>
+                        <input 
+                          type="number"
+                          min="1"
+                          value={formConfig.minPickupTime ?? 15} 
+                          onChange={e => setFormConfig({...formConfig, minPickupTime: parseInt(e.target.value, 10)})}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Tempo Máximo (min)</label>
+                        <input 
+                          type="number" 
+                          min="1"
+                          value={formConfig.maxPickupTime ?? 30} 
+                          onChange={e => setFormConfig({...formConfig, maxPickupTime: parseInt(e.target.value, 10)})}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="border-t border-gray-100 pt-6 mt-2 col-span-1 md:col-span-2">
                   <div className="flex flex-col gap-4 bg-gray-50 border border-gray-200 rounded-xl p-4">
                     <div className="flex items-center gap-3">
@@ -296,6 +329,31 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                         <div className="text-sm font-bold text-gray-900">Notificar Carrinho Iniciado</div>
                         <div className="text-[10px] text-gray-500">Gera um alerta no sistema quando um cliente adiciona o primeiro item à sacola.</div>
                       </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <div>
+                      <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Valor Mínimo do Pedido (S/ Taxa)</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">R$</span>
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          value={formConfig.minOrderValue ?? 20} 
+                          onChange={e => setFormConfig({...formConfig, minOrderValue: parseFloat(e.target.value)})}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 pl-10 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Mensagem de Sucesso (Checkout)</label>
+                      <textarea 
+                        rows={3}
+                        value={formConfig.orderSuccessMessage ?? ''} 
+                        onChange={e => setFormConfig({...formConfig, orderSuccessMessage: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm resize-none"
+                      />
                     </div>
                   </div>
 

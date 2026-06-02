@@ -9,6 +9,7 @@ import { AdminModal } from './components/AdminModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { Footer } from './components/Footer';
 import { HeroSplash } from './components/HeroSplash';
+import { CustomerOrdersModal } from './components/CustomerOrdersModal';
 import { useStore } from './contexts/StoreContext';
 import { CartItem, Category, Product } from './types';
 import { cn } from './utils/cn';
@@ -23,6 +24,7 @@ export default function App() {
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [showCustomerOrders, setShowCustomerOrders] = useState(false);
   const [activeCategory, setActiveCategory] = useState<Category>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFavorites, setShowFavorites] = useState(false);
@@ -103,6 +105,7 @@ export default function App() {
         setSearchQuery={setSearchQuery}
         showFavorites={showFavorites}
         setShowFavorites={setShowFavorites}
+        onOpenCustomerOrders={() => setShowCustomerOrders(true)}
       />
       <Banner />
 
@@ -240,6 +243,10 @@ export default function App() {
           onClose={() => setIsCheckoutOpen(false)}
           onFinish={() => setCartItems([])}
         />
+      )}
+
+      {showCustomerOrders && (
+        <CustomerOrdersModal onClose={() => setShowCustomerOrders(false)} />
       )}
 
       {isAdminOpen && (

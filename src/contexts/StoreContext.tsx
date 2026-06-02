@@ -54,6 +54,8 @@ interface StoreConfig {
   fixedDeliveryTime?: number;
   minDeliveryTime?: number;
   maxDeliveryTime?: number;
+  minPickupTime?: number;
+  maxPickupTime?: number;
   notifyOnCartStart?: boolean;
   whatsappMessages?: {
     newOrder?: string;
@@ -70,6 +72,8 @@ interface StoreConfig {
     orderDelivered?: boolean;
   };
   enabledPaymentMethods?: string[];
+  minOrderValue?: number;
+  orderSuccessMessage?: string;
   whatsappApiConfig?: {
     enabled?: boolean;
     apiUrl?: string;
@@ -122,6 +126,10 @@ const DEFAULT_CONFIG: StoreConfig = {
   fixedDeliveryTime: 40,
   minDeliveryTime: 30,
   maxDeliveryTime: 50,
+  minPickupTime: 15,
+  maxPickupTime: 30,
+  minOrderValue: 20,
+  orderSuccessMessage: 'Seu pedido foi registrado! Caso o WhatsApp não tenha aberto automaticamente, clique no botão abaixo.',
   notifyOnCartStart: false,
   enabledPaymentMethods: ['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'],
 };
@@ -310,7 +318,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const createOrder = async (orderData: Omit<import('../types').Order, 'id'>): Promise<string> => {
     try {
       const docRef = doc(collection(db, 'orders'));
-      await setDoc(docRef, { ...orderData, id: docRef.id });
+      const newOrder = { ...orderData, id: docRef.id };
+      await setDoc(docRef, newOrder);
+      
+      try {
+        const savedOrders = localStorage.getItem('customer_orders');
+        const currentOrders = savedOrders ? JSON.parse(savedOrders) : [];
+        currentOrders.unshift(newOrder); // Add to beginning
+        localStorage.setItem('customer_orders', JSON.stringify(currentOrders.slice(0, 20))); // Keep last 20
+      } catch (err) {
+        console.error('Failed to save order to local storage', err);
+      }
+      
       return docRef.id;
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, 'orders');
