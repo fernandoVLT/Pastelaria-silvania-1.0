@@ -81,6 +81,7 @@ interface StoreConfig {
     token?: string;
   };
   printConfig?: {
+    webhookUrl?: string;
     autoPrint: boolean;
     autoPrintDelivery?: boolean;
     autoPrintPickup?: boolean;

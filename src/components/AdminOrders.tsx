@@ -105,7 +105,7 @@ export function AdminOrders() {
             if (autoPrintEnabled) {
               const isDelivery = order.orderType === 'Delivery';
               if ((isDelivery && autoPrintDelivery) || (!isDelivery && autoPrintPickup)) {
-                handlePrint(order);
+                handlePrint(order, true);
               }
             }
           }
@@ -270,15 +270,31 @@ export function AdminOrders() {
     setCancelingOrder(null);
   };
 
-  const handlePrint = async (order: Order) => {
-    toast.success('Enviando para impressora...');
-    
+  const handlePrint = async (order: Order, isAutoPrint: boolean = false) => {
+    if (!isAutoPrint) toast.success('Enviando para impressora...');
+
+    // Webhook integration for asynchronous printing
+    if (config.printConfig?.webhookUrl) {
+      try {
+        await fetch(config.printConfig.webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(order)
+        });
+        if (!isAutoPrint) toast.success('Pedido enviado para o webhook de impressão!');
+        return; // Early return to avoid triggering browser print or USB fallback
+      } catch (e) {
+        console.error('Print webhook error:', e);
+        if (!isAutoPrint) toast.error('Falha na comunicação com o webhook de impressão.');
+      }
+    }
+
     // Check if USB printing is enabled
     if (config.printConfig?.usbPrinter) {
       try {
         const success = await printDirectToUsb(order);
         if (success) {
-          toast.success('Impresso via USB com sucesso!');
+          if (!isAutoPrint) toast.success('Impresso via USB com sucesso!');
           return;
         }
       } catch (err) {
@@ -286,6 +302,9 @@ export function AdminOrders() {
       }
     }
 
+    if (isAutoPrint) return;
+
+    // Fallback: local browser print queue
     // Check if the order is already in the queue to prevent duplicates
     if (!printQueue.some(o => o.id === order.id)) {
       setPrintQueue(prev => [...prev, order]);
