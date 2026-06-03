@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "postinstall": "npm run build",
-    "dev": "vite",
+    "dev": "node server.js",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server.js",
@@ -17,7 +17,9 @@
     "@google/genai": "^1.29.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
+    "abacatepay": "^1.0.1",
     "clsx": "^2.1.1",
+    "cors": "^2.8.6",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "firebase": "^12.13.0",

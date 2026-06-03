@@ -6,18 +6,85 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+app.use(express.json());
+
 // A Hostinger injeta a porta necessária via process.env.PORT
 const PORT = process.env.PORT || 3000;
 
-// Servir os arquivos estáticos da compilação do React (pasta 'dist')
-app.use(express.static(join(__dirname, 'dist')));
+app.post('/api/abacatepay', async (req, res) => {
+  try {
+    const { amount, customerName, customerPhone, items } = req.body;
+    
+    if (!process.env.ABACATEPAY_API_KEY) {
+      return res.status(500).json({ error: 'Configuração do AbacatePay ausente no servidor.' });
+    }
 
-// Redirecionar todas as outras requisições para o index.html (para o React Router funcionar)
-app.get('*all', (req, res) => {
-  res.sendFile(join(__dirname, 'dist', 'index.html'));
+    const priceCents = Math.round(amount * 100);
+
+    const abacateResponse = await fetch('https://api.abacatepay.com/v1/billing/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.ABACATEPAY_API_KEY}`
+      },
+      body: JSON.stringify({
+        frequency: "ONE_TIME",
+        methods: ["PIX"],
+        products: [
+          {
+            externalId: "pedido_geral",
+            name: "Pedido Food Delivery",
+            quantity: 1,
+            price: priceCents,
+            description: items ? items.map((i) => `${i.quantity}x ${i.productName}`).join(', ') : "Pedido no Delivery"
+          }
+        ],
+        returnUrl: "https://abacatepay.com",
+        completionUrl: "https://abacatepay.com",
+        customer: {
+          name: customerName || "Cliente Generico",
+          email: "cliente@delivery.com",
+          cellphone: customerPhone?.replace(/\D/g, '') || "31999999999"
+        }
+      })
+    });
+
+    if (!abacateResponse.ok) {
+      const errorText = await abacateResponse.text();
+      console.error('AbacatePay erro:', errorText);
+      return res.status(abacateResponse.status).json({ error: 'Erro ao gerar PIX com AbacatePay.', details: errorText });
+    }
+
+    const abacateData = await abacateResponse.json();
+    return res.json(abacateData);
+  } catch (error) {
+    console.error('Erro na API abacatepay:', error);
+    res.status(500).json({ error: 'Erro interno no servidor.' });
+  }
 });
 
-// A Hostinger requer que a aplicação escute nesta porta
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+async function startServer() {
+  if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    // Servir os arquivos estáticos da compilação do React (pasta 'dist')
+    app.use(express.static(join(__dirname, 'dist')));
+
+    // Redirecionar todas as outras requisições para o index.html (para o React Router funcionar)
+    app.get('*all', (req, res) => {
+      res.sendFile(join(__dirname, 'dist', 'index.html'));
+    });
+  }
+
+  // A Hostinger requer que a aplicação escute nesta porta
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
+
+startServer();

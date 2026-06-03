@@ -79,6 +79,10 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
       enc.text(`  ${formatCurrency(item.price * item.quantity)}`);
     }
     enc.newline();
+    if (item.category) {
+      enc.text(`  [${item.category}]`);
+      enc.newline();
+    }
   });
   enc.newline(1);
   

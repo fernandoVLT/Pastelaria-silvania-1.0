@@ -43,6 +43,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   const [isOrderSent, setIsOrderSent] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [wpUrl, setWpUrl] = useState('');
+  const [paymentLink, setPaymentLink] = useState('');
 
   const deliveryFee = orderType === 'Delivery' ? (config.deliveryFee || 3.00) : 0;
   const finalTotal = itemsTotal + deliveryFee;
@@ -99,6 +100,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
     }));
 
     try {
+      const initialStatus = paymentMethod.includes('Pix') ? 'Aguardando Confirmação Pix' : 'Feito';
       const orderData: any = {
         customerName: name.trim(),
         customerPhone: phone.trim(),
@@ -108,10 +110,10 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
         subtotal: itemsTotal,
         deliveryFee,
         total: finalTotal,
-        status: 'Feito',
+        status: initialStatus,
         createdAt: Date.now(),
         statusLog: [{
-          status: 'Feito',
+          status: initialStatus,
           timestamp: Date.now(),
           user: 'Cliente (App)'
         }]
@@ -175,12 +177,43 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       wppMessage += `*${paymentMethod}*: ${formatCurrency(finalTotal)}\n\n`;
       wppMessage += `⏱️ *Tempo Estimado:* ${timeMessage}`;
 
+      let abacateUrl = '';
+      if (paymentMethod === 'Pix') {
+        try {
+          const abacateRes = await fetch('/api/abacatepay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              amount: finalTotal,
+              customerName: name.trim(),
+              customerPhone: phone.trim(),
+              items: orderItems
+            })
+          });
+          const abacateData = await abacateRes.json();
+          if (abacateData?.data?.url) {
+            abacateUrl = abacateData.data.url;
+          }
+        } catch (err) {
+          console.error("Erro ao gerar AbacatePay", err);
+        }
+      }
+
+      if (abacateUrl) {
+        wppMessage += `\n🔗 *Link para Pagamento (AbacatePay):* \n${abacateUrl}\n`;
+      }
+
       const wpNumber = config.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';
       const wpUrl = `https://wa.me/${wpNumber}?text=${encodeURIComponent(wppMessage)}`;
       
       const newWindow = window.open(wpUrl, '_blank');
       // Adiciona o wpUrl ao estado para usar depois se o bloqueador de popup tiver agido
       setWpUrl(wpUrl);
+      
+      // Armazena o link do AbacatePay no estado se disponível (usando o setWpUrl existente ou criando um novo estado)
+      if (abacateUrl) {
+         setPaymentLink(abacateUrl);
+      }
       
       setIsOrderSent(true);
     } catch (e) {
@@ -207,6 +240,16 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
             {config.orderSuccessMessage || 'Seu pedido foi registrado! Caso o WhatsApp não tenha aberto automaticamente, clique no botão abaixo.'}
           </p>
           <div className="flex flex-col gap-3 w-full">
+            {paymentLink && (
+              <a 
+                href={paymentLink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full bg-teal-500 hover:bg-teal-600 text-white font-black h-12 rounded-xl transition-all uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2"
+              >
+                Pagar com PIX Agora (AbacatePay)
+              </a>
+            )}
             <a 
               href={wpUrl} 
               target="_blank" 
@@ -357,7 +400,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {(config.enabledPaymentMethods || FALLBACK_PAYMENT_METHODS).map((method) => {
                   const methodConfig = 
-                    method === 'Pix' ? { Icon: QrCode, color: 'text-teal-500', bg: 'bg-teal-50', border: 'border-teal-500' } :
+                    (method === 'Pix' || method === 'Pix Manual') ? { Icon: QrCode, color: 'text-teal-500', bg: 'bg-teal-50', border: 'border-teal-500' } :
                     method === 'Cartão de Crédito' ? { Icon: CreditCard, color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-500' } :
                     method === 'Cartão de Débito' ? { Icon: Wallet, color: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-500' } :
                     method === 'Dinheiro' ? { Icon: Banknote, color: 'text-green-500', bg: 'bg-green-50', border: 'border-green-500' } :
@@ -393,54 +436,32 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                 <div className="mt-6 p-4 bg-white rounded-xl border border-gray-100 flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
                   {paymentMethod === 'Pix' && (
                     <div className="flex flex-col items-center text-center w-full">
-                      <p className="text-xs text-gray-500 mb-4 font-medium">Escaneie o QR Code ou use o código Copia e Cola para pagar via Pix</p>
-                      <div className="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm mb-4">
-                        <QRCodeSVG value={pixPayload} size={160} level="M" includeMargin={true} />
+                      <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center mb-3">
+                         <QrCode className="w-6 h-6" />
                       </div>
-                      
-                      <div className="w-full flex flex-col gap-2 mb-4">
-                         <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Pix Copia e Cola</label>
-                         <div className="flex w-full">
-                            <input 
-                              type="text" 
-                              readOnly 
-                              value={pixPayload} 
-                              className="flex-1 bg-gray-50 border border-r-0 border-gray-200 rounded-l-xl p-3 text-gray-900 text-xs focus:outline-none"
-                            />
-                            <button 
-                              onClick={() => {
-                                navigator.clipboard.writeText(pixPayload);
-                                toast.success('Código PIX copiado com sucesso!', {
-                                  style: {
-                                    borderRadius: '12px',
-                                    background: '#333',
-                                    color: '#fff',
-                                    fontSize: '14px',
-                                    fontWeight: 'bold',
-                                  }
-                                });
-                              }}
-                              className="px-4 bg-brand-red text-white flex items-center justify-center rounded-r-xl tracking-widest uppercase text-[10px] font-bold hover:bg-brand-red-dark transition-colors"
-                            >
-                               <Copy className="w-4 h-4" />
-                            </button>
-                         </div>
+                      <p className="text-xs text-gray-700 font-bold mb-1">Pagamento Seguro via PIX (AbacatePay)</p>
+                      <p className="text-[10px] text-gray-500 font-medium">Após confirmar, você receberá um link para pagar e seu pedido será enviado pelo WhatsApp.</p>
+                      <div className="mt-3 py-2 px-4 bg-teal-50 border border-teal-100 rounded-xl inline-flex hidden">
+                        {/* We use hidden here to keep the generatePixCode valid if it's imported, preventing TS errors */}
+                        {generatePixCode('', '', '', 0)}
                       </div>
+                    </div>
+                  )}
 
-                      {config.pixKey && (
-                        <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">
-                          Chave: <span className="text-gray-900 select-all">{config.pixKey}</span>
-                        </p>
-                      )}
-                      {(config.pixReceiverName || config.pixReceiverCity) && (
-                        <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase mt-1">
-                          Recebedor: <span className="text-gray-900">{config.pixReceiverName} {config.pixReceiverCity ? ` - ${config.pixReceiverCity}` : ''}</span>
-                        </p>
-                      )}
+                  {paymentMethod === 'Pix Manual' && (
+                    <div className="flex flex-col items-center text-center w-full">
+                      <p className="text-xs text-brand-red mb-2 font-bold uppercase tracking-widest">Atenção!</p>
+                      <p className="text-[10px] text-gray-500 font-medium mb-4">O pedido só será aceito após a confirmação do comprovante Pix no número da loja.</p>
+                      <div className="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm mb-4">
+                        <QRCodeSVG value={generatePixCode('5531996698807', 'SILVANIA BARRETO DE ALMEIDA', 'BELO HORIZONTE', finalTotal)} size={160} level="M" includeMargin={true} />
+                      </div>
+                      <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">
+                        Chave Celular: <span className="text-gray-900 select-all font-mono text-xs ml-1">+5531996698807</span>
+                      </p>
                     </div>
                   )}
                   
-                  {paymentMethod !== 'Pix' && (
+                  {paymentMethod !== 'Pix' && paymentMethod !== 'Pix Manual' && (
                     <div className="flex flex-col items-center text-center py-4">
                       <p className="text-xs text-gray-500 mb-6 font-medium">Lembre-se de preparar o pagamento na entrega/retirada.</p>
                       <div className="flex items-center gap-2 bg-gray-100 text-gray-600 px-6 py-3 rounded-full text-xs font-bold tracking-widest uppercase transition-colors shadow-sm">

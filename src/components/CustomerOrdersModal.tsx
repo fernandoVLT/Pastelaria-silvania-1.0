@@ -1,4 +1,4 @@
-import { X, Clock, ShoppingBag } from 'lucide-react';
+import { X, Clock, ShoppingBag, Plus } from 'lucide-react';
 import { formatCurrency } from '../utils/formatCurrency';
 import { useStore } from '../contexts/StoreContext';
 import { useEffect, useState } from 'react';
@@ -8,9 +8,10 @@ import { doc, getDoc } from 'firebase/firestore';
 
 interface Props {
   onClose: () => void;
+  onReorder: (items: any[]) => void;
 }
 
-export function CustomerOrdersModal({ onClose }: Props) {
+export function CustomerOrdersModal({ onClose, onReorder }: Props) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -47,6 +48,11 @@ export function CustomerOrdersModal({ onClose }: Props) {
     loadOrders();
   }, []);
 
+  const handleReorder = (order: Order) => {
+    onReorder(order.items);
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="bg-white border border-gray-100 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col h-[85vh] animate-in zoom-in-95 duration-300">
@@ -77,7 +83,7 @@ export function CustomerOrdersModal({ onClose }: Props) {
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h4 className="font-bold text-gray-900">
-                        Pedido #{order.id?.substring(0,6).toUpperCase() || 'NOVO'}
+                        Pedido #{order.id || 'NOVO'}
                       </h4>
                       <p className="text-xs text-gray-500 font-medium">
                         {new Date(order.createdAt).toLocaleString()}
@@ -89,24 +95,38 @@ export function CustomerOrdersModal({ onClose }: Props) {
                   </div>
                   <div className="space-y-2 mb-3">
                     {order.items.map((item, i) => (
-                      <div key={i} className="flex justify-between items-center text-sm">
-                        <span className="text-gray-700">
-                          <span className="font-bold text-brand-red mr-2">{item.quantity}x</span>
-                          {item.productName}
+                      <div key={i} className="flex justify-between items-start text-sm">
+                        <span className="text-gray-700 flex flex-col">
+                          <span className="flex items-center gap-2">
+                            <span className="font-bold text-brand-red">{item.quantity}x</span>
+                            {item.productName}
+                          </span>
+                          {item.category && (
+                            <span className="text-[10px] text-gray-400 font-bold tracking-widest pl-6">{item.category}</span>
+                          )}
                         </span>
-                        <span className="font-medium text-gray-900 font-mono">
+                        <span className="font-medium text-gray-900 font-mono pl-2 shrink-0 pt-0.5">
                           {formatCurrency(item.price * item.quantity)}
                         </span>
                       </div>
                     ))}
                   </div>
-                  <div className="flex justify-between items-center pt-3 border-t border-gray-100">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                      {order.orderType}
-                    </span>
-                    <span className="font-black text-gray-900 text-lg font-mono">
-                      {formatCurrency(order.total)}
-                    </span>
+                  <div className="flex justify-between items-center pt-3 border-t border-gray-100 mt-4">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
+                        {order.orderType}
+                      </span>
+                      <span className="font-black text-gray-900 text-lg font-mono leading-none">
+                        {formatCurrency(order.total)}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={() => handleReorder(order)}
+                      className="px-4 py-2 bg-brand-red hover:bg-brand-red-dark text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2 shadow-md shadow-red-500/20"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Refazer Pedido
+                    </button>
                   </div>
                 </div>
               ))}

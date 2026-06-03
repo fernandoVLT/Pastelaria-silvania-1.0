@@ -42,7 +42,10 @@ export function ProductModal({ product, onClose, onAdd }: Props) {
             <img src={product.imageUrl} alt={product.name} loading="lazy" decoding="async" className="w-full h-48 object-cover rounded-xl mb-6 border border-gray-100 shadow-sm" />
           )}
           
-          <h3 className="text-3xl font-black text-gray-900 mb-2 tracking-tight uppercase leading-none">{product.name}</h3>
+          <h3 className="text-3xl font-black text-gray-900 mb-1 tracking-tight uppercase leading-none">{product.name}</h3>
+          {product.category && (
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-4 inline-block bg-gray-100 px-2 py-1 rounded">{product.category}</p>
+          )}
 
           <div className="font-mono text-2xl text-brand-red mb-4 mt-2">{formatCurrency(product.price)}</div>
           

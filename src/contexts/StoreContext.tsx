@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product, Category, Review } from '../types';
 import { products as initialProducts } from '../data/products';
-import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, writeBatch, increment, arrayUnion, addDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, writeBatch, increment, arrayUnion, addDoc, getDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 enum OperationType {
@@ -131,7 +131,7 @@ const DEFAULT_CONFIG: StoreConfig = {
   minOrderValue: 20,
   orderSuccessMessage: 'Seu pedido foi registrado! Caso o WhatsApp não tenha aberto automaticamente, clique no botão abaixo.',
   notifyOnCartStart: false,
-  enabledPaymentMethods: ['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'],
+  enabledPaymentMethods: ['Pix', 'Pix Manual', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'],
 };
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -317,7 +317,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const createOrder = async (orderData: Omit<import('../types').Order, 'id'>): Promise<string> => {
     try {
-      const orderId = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit numeric ID
+      let orderId = '';
+      try {
+        const counterRef = doc(db, 'counters', 'orders');
+        await runTransaction(db, async (transaction) => {
+          const counterDoc = await transaction.get(counterRef);
+          let newIdNum = 1;
+          if (counterDoc.exists()) {
+            newIdNum = (counterDoc.data().lastId || 0) + 1;
+          }
+          transaction.set(counterRef, { lastId: newIdNum });
+          orderId = newIdNum.toString();
+        });
+      } catch (err) {
+        console.error("Counter transaction failed, falling back to random ID", err);
+        orderId = Math.floor(100000 + Math.random() * 900000).toString(); // Fallback
+      }
+
       const docRef = doc(db, 'orders', orderId);
       const newOrder = { ...orderData, id: orderId };
       await setDoc(docRef, newOrder);

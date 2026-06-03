@@ -39,12 +39,17 @@ export function CartSidebar({ items, onRemove, onCheckout }: Props) {
         {items.map((item) => (
           <div key={item.id} className="flex justify-between items-start group">
             <div className="flex-1 mr-4">
-              <h5 className="text-sm font-bold uppercase tracking-tight text-gray-900 flex items-start gap-2 leading-tight">
-                 <span className="text-brand-red font-mono text-xs pt-0.5 bg-red-50 px-1.5 py-0.5 rounded shadow-sm">{item.quantity}x</span>
-                 {item.product.name}
+              <h5 className="text-sm font-bold uppercase tracking-tight text-gray-900 flex flex-col items-start gap-1 leading-tight mb-1">
+                 <div className="flex items-center gap-2">
+                   <span className="text-brand-red font-mono text-xs pt-0.5 bg-red-50 px-1.5 py-0.5 rounded shadow-sm">{item.quantity}x</span>
+                   <span>{item.product.name}</span>
+                 </div>
+                 {item.product.category && (
+                   <span className="text-[10px] text-gray-500 font-bold tracking-widest pl-9">{item.product.category}</span>
+                 )}
               </h5>
               {item.observation && (
-                <p className="text-[10px] text-gray-500 mt-1 italic font-medium">"{item.observation}"</p>
+                <p className="text-[10px] text-gray-500 italic font-medium pl-9">"{item.observation}"</p>
               )}
             </div>
             <div className="flex flex-col items-end gap-2">

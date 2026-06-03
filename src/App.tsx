@@ -55,6 +55,40 @@ export default function App() {
     setCartItems(prev => prev.filter(item => item.id !== id));
   };
 
+  const handleReorder = (historicItems: any[]) => {
+    if (!computedIsOpen) {
+      alert("A loja está fechada no momento. Os pedidos estão suspensos.");
+      return;
+    }
+    
+    const newCartItems: CartItem[] = historicItems.map(item => {
+      // Find the corresponding product in the latest store context
+      const product = products.find(p => p.name === item.productName) || {
+        id: crypto.randomUUID(),
+        name: item.productName,
+        category: item.category,
+        price: item.price,
+        description: '',
+        reviews: []
+      } as Product;
+      
+      return {
+        id: crypto.randomUUID(),
+        product,
+        quantity: item.quantity
+      };
+    });
+
+    setCartItems(prev => {
+      if (prev.length === 0 && config.notifyOnCartStart) {
+         notifyAdminCartStarted?.().catch(console.error);
+      }
+      return [...prev, ...newCartItems];
+    });
+    
+    setIsMobileCartOpen(true);
+  };
+
   const total = cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
 
   const filterBySearch = (p: Product) => {
@@ -246,7 +280,7 @@ export default function App() {
       )}
 
       {showCustomerOrders && (
-        <CustomerOrdersModal onClose={() => setShowCustomerOrders(false)} />
+        <CustomerOrdersModal onClose={() => setShowCustomerOrders(false)} onReorder={handleReorder} />
       )}
 
       {isAdminOpen && (

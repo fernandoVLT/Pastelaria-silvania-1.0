@@ -21,6 +21,7 @@ function ElapsedTimer({ startTime }: { startTime: number }) {
 }
 
 const STATUS_COLORS = {
+  'Aguardando Confirmação Pix': 'bg-teal-100 border-teal-300 text-teal-800',
   'Feito': 'bg-yellow-100 border-yellow-300 text-yellow-800',
   'Em Preparo': 'bg-purple-100 border-purple-300 text-purple-800',
   'Pronto': 'bg-orange-100 border-orange-300 text-orange-800',
@@ -30,6 +31,7 @@ const STATUS_COLORS = {
 };
 
 const STATUS_INDICATOR = {
+  'Aguardando Confirmação Pix': 'bg-teal-500',
   'Feito': 'bg-yellow-500',
   'Em Preparo': 'bg-purple-500',
   'Pronto': 'bg-orange-500',
@@ -391,8 +393,11 @@ export function AdminOrders() {
                 <div className="font-medium text-[9px] text-gray-600 mb-0.5">{order.items.length} itens:</div>
                 <ul className="text-[10px] space-y-0 text-gray-800">
                   {order.items.map((item, i) => (
-                    <li key={i} className="flex justify-between items-start leading-tight">
+                    <li key={i} className="flex flex-col items-start leading-tight">
                       <span><span className="font-bold mr-1">{item.quantity}x</span> {item.productName}</span>
+                      {item.category && (
+                        <span className="text-[8px] text-gray-500 font-bold tracking-widest pl-4">{item.category}</span>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -659,6 +664,7 @@ export function AdminOrders() {
       
       {activeTab === 'ativos' ? (
         <div className="flex-1 overflow-x-auto pb-4 custom-scrollbar flex gap-6 snap-x snap-mandatory items-start">
+          {renderColumn('Aguardando Confirmação Pix', 'Aguardando Confirmação Pix')}
           {renderColumn('Feito', 'Novos Pedidos')}
           {renderColumn('Em Preparo', 'Em Preparo')}
           {renderColumn('Pronto', 'Pronto (Retirada)')}
