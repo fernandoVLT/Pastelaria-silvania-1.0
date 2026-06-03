@@ -105,7 +105,7 @@ export function AdminOrders() {
             if (autoPrintEnabled) {
               const isDelivery = order.orderType === 'Delivery';
               if ((isDelivery && autoPrintDelivery) || (!isDelivery && autoPrintPickup)) {
-                handlePrint(order, true);
+                handlePrint(order);
               }
             }
           }
@@ -270,23 +270,21 @@ export function AdminOrders() {
     setCancelingOrder(null);
   };
 
-  const handlePrint = async (order: Order, isAutoPrint: boolean = false) => {
-    if (!isAutoPrint) toast.success('Enviando para impressora...');
+  const handlePrint = async (order: Order) => {
+    toast.success('Enviando para impressora...');
     
     // Check if USB printing is enabled
     if (config.printConfig?.usbPrinter) {
       try {
         const success = await printDirectToUsb(order);
         if (success) {
-          if (!isAutoPrint) toast.success('Impresso via USB com sucesso!');
+          toast.success('Impresso via USB com sucesso!');
           return;
         }
       } catch (err) {
          console.error('USB print failed, falling back', err);
       }
     }
-
-    if (isAutoPrint) return;
 
     // Check if the order is already in the queue to prevent duplicates
     if (!printQueue.some(o => o.id === order.id)) {
