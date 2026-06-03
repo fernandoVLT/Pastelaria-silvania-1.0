@@ -273,22 +273,6 @@ export function AdminOrders() {
   const handlePrint = async (order: Order, isAutoPrint: boolean = false) => {
     if (!isAutoPrint) toast.success('Enviando para impressora...');
 
-    // Webhook integration for asynchronous printing
-    if (config.printConfig?.webhookUrl) {
-      try {
-        await fetch(config.printConfig.webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(order)
-        });
-        if (!isAutoPrint) toast.success('Pedido enviado para o webhook de impressão!');
-        return; // Early return to avoid triggering browser print or USB fallback
-      } catch (e) {
-        console.error('Print webhook error:', e);
-        if (!isAutoPrint) toast.error('Falha na comunicação com o webhook de impressão.');
-      }
-    }
-
     // Check if USB printing is enabled
     if (config.printConfig?.usbPrinter) {
       try {
@@ -301,8 +285,6 @@ export function AdminOrders() {
          console.error('USB print failed, falling back', err);
       }
     }
-
-    if (isAutoPrint) return;
 
     // Fallback: local browser print queue
     // Check if the order is already in the queue to prevent duplicates
