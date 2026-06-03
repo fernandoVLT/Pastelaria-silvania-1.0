@@ -709,8 +709,8 @@ export function AdminOrders() {
       )}
 
       {/* Hidden Print Component */}
-      <div style={{ display: 'none' }}>
-        <ReceiptPrint ref={printRef} order={printingOrder} />
+      <div className="absolute overflow-hidden w-0 h-0 top-0 left-0 pointer-events-none opacity-0">
+        {printingOrder && <ReceiptPrint ref={printRef} order={printingOrder} />}
       </div>
     </div>
   );

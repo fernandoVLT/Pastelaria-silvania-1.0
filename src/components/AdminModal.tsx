@@ -451,17 +451,28 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                             <Store className="w-4 h-4" />
                             Impressão Silenciosa (Sem Janela)
                           </h5>
-                          <p className="text-xs text-sky-800 font-medium mb-2 leading-relaxed">
-                            Navegadores de internet sempre abrem uma tela antes de imprimir por segurança. Para pular essa tela e imprimir direto, você tem duas opções:
+                          <p className="text-xs text-sky-800 font-medium mb-3 leading-relaxed">
+                            Navegadores abrem uma tela de confirmação de impressão por segurança. Para pular essa tela e imprimir direto, use a <strong>Opção 1</strong> (USB direto). Se não funcionar, use a <strong>Opção 2</strong> (Modo Kiosk).
                           </p>
-                          <ul className="text-xs text-sky-800 list-disc pl-5 mt-2 space-y-2 leading-relaxed opacity-90">
+                          <ul className="text-xs text-sky-800 list-disc pl-5 space-y-3 leading-relaxed opacity-95">
                             <li><strong>Opção 1 (WebUSB abaixo):</strong> Conecte sua impressora térmica via USB e clique no botão escuro "Selecionar Impressora" abaixo.</li>
-                            <li><strong>Opção 2 (Modo Kiosk):</strong> Se usar a impressão padrão, altere o atalho do Google Chrome no seu computador, adicionando <code>--kiosk-printing</code> no final do "Destino" nas propriedades do atalho. Toda vez que abrir o sistema por esse atalho, a janela de impressão será invisível.</li>
+                            <li>
+                              <strong>Opção 2 (Modo Kiosk Chrome):</strong> No atalho do Chrome, no campo "Destino", adicione no final:
+                              <code className="block mt-1 bg-white px-2 py-1.5 rounded border border-sky-200 text-xs text-pink-700 font-mono shadow-sm">--kiosk-printing --user-data-dir="C:\ChromePDV" "COLE O LINK AQUI"</code>
+                              <span className="block mt-1 text-[10px] bg-sky-100 p-1.5 rounded">
+                                * O comando <strong>--user-data-dir</strong> é OBRIGATÓRIO, senão o Chrome ignora o kiosk se você já tiver outra janela dele aberta! E certifique-se de que a sua impressora térmica seja a <strong>Impressora Padrão</strong> do Windows.
+                              </span>
+                            </li>
                           </ul>
                         </div>
                         <div className="mt-2 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-                          <h5 className="text-[10px] uppercase font-bold tracking-widest text-gray-700 mb-2">Impressão Direta USB / HID</h5>
-                          <p className="text-[10px] text-gray-500 mb-3">Conecte sua impressora térmica via USB para imprimir automaticamente, sem abrir a janela do navegador.</p>
+                          <h5 className="text-[10px] uppercase font-bold tracking-widest text-gray-700 mb-2 flex items-center gap-2">
+                            <Printer className="w-3 h-3" /> Impressão USB (Sem Janela)
+                          </h5>
+                          <p className="text-[10px] text-gray-600 mb-2">Conecte sua impressora térmica USB.</p>
+                          <p className="text-[10px] text-brand-red bg-red-50 p-2 rounded block mb-3 font-medium border border-red-100">
+                             <strong>Atenção Windows:</strong> Se der falha (Security Error), você precisa baixar o programa gratuito <strong>"Zadig"</strong>, selecionar "Options &gt; List All Devices", escolher sua impressora (ex: POS-80) e instalar o driver <strong>"WinUSB"</strong> nela para que navegadores da web consigam ter acesso direto à impressora.
+                          </p>
                           <div className="flex flex-col gap-3">
                             {formConfig.printConfig?.usbPrinter ? (
                               <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">

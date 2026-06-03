@@ -154,22 +154,30 @@ export async function printDirectToUsb(order: Order): Promise<boolean> {
       await device.selectConfiguration(1);
     }
     
-    const interfaceNumber = device.configuration.interfaces[0].interfaceNumber;
-    await device.claimInterface(interfaceNumber);
-    
     let outEndpoint: any = null;
-    const alternate = device.configuration.interfaces[0].alternate;
-    for (const ep of alternate.endpoints) {
-      if (ep.direction === 'out') {
-        outEndpoint = ep;
-        break;
+    let interfaceNumber: number = 0;
+    
+    // Find the first interface with an OUT endpoint
+    for (const iface of device.configuration.interfaces) {
+      const alternate = iface.alternates[0] || iface.alternate;
+      if (!alternate) continue;
+      
+      for (const ep of alternate.endpoints) {
+        if (ep.direction === 'out') {
+          outEndpoint = ep;
+          interfaceNumber = iface.interfaceNumber;
+          break;
+        }
       }
+      if (outEndpoint) break;
     }
     
     if (!outEndpoint) {
-      console.warn("No USB OUT endpoint found");
+      console.warn("No USB OUT endpoint found no dispositivo selecionado.");
       return false;
     }
+    
+    await device.claimInterface(interfaceNumber);
     
     const kitchenReceipt = buildReceipt(order, 'kitchen');
     await device.transferOut(outEndpoint.endpointNumber, kitchenReceipt);
