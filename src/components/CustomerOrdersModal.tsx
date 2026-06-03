@@ -77,7 +77,7 @@ export function CustomerOrdersModal({ onClose }: Props) {
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h4 className="font-bold text-gray-900">
-                        Pedido #{order.id?.substring(0,6).toUpperCase() || 'NOVO'}
+                        Pedido #{order.id || 'NOVO'}
                       </h4>
                       <p className="text-xs text-gray-500 font-medium">
                         {new Date(order.createdAt).toLocaleString()}

@@ -458,9 +458,9 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                             <li><strong>Opção 1 (WebUSB abaixo):</strong> Conecte sua impressora térmica via USB e clique no botão escuro "Selecionar Impressora" abaixo.</li>
                             <li>
                               <strong>Opção 2 (Modo Kiosk Chrome):</strong> No atalho do Chrome, no campo "Destino", adicione no final:
-                              <code className="block mt-1 bg-white px-2 py-1.5 rounded border border-sky-200 text-xs text-pink-700 font-mono shadow-sm">--kiosk-printing --user-data-dir="C:\ChromePDV" "COLE O LINK AQUI"</code>
+                              <code className="block mt-1 bg-white px-2 py-1.5 rounded border border-sky-200 text-xs text-pink-700 font-mono shadow-sm">--kiosk-printing --user-data-dir="C:\ChromePDV" "{window.location.origin}"</code>
                               <span className="block mt-1 text-[10px] bg-sky-100 p-1.5 rounded">
-                                * O comando <strong>--user-data-dir</strong> é OBRIGATÓRIO, senão o Chrome ignora o kiosk se você já tiver outra janela dele aberta! E certifique-se de que a sua impressora térmica seja a <strong>Impressora Padrão</strong> do Windows.
+                                * O comando <strong>--user-data-dir</strong> é OBRIGATÓRIO, senão o Chrome ignora o kiosk se você já tiver outra janela dele aberta! O Chrome cria a pasta C:\ChromePDV sozinho, você não precisa criar. Certifique-se de que a sua impressora térmica seja a <strong>Impressora Padrão</strong> do Windows.
                               </span>
                             </li>
                           </ul>

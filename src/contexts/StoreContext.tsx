@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product, Category, Review } from '../types';
 import { products as initialProducts } from '../data/products';
-import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, writeBatch, increment, arrayUnion, addDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, writeBatch, increment, arrayUnion, addDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 enum OperationType {
@@ -317,10 +317,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const createOrder = async (orderData: Omit<import('../types').Order, 'id'>): Promise<string> => {
     try {
-      const docRef = doc(collection(db, 'orders'));
-      const newOrder = { ...orderData, id: docRef.id };
-      await setDoc(docRef, newOrder);
+      const counterRef = doc(db, 'system', 'orderCounter');
       
+      const orderId = await runTransaction(db, async (transaction) => {
+        const counterDoc = await transaction.get(counterRef);
+        let nextSeq = 1;
+        if (counterDoc.exists()) {
+          nextSeq = (counterDoc.data().current || 0) + 1;
+        }
+        transaction.set(counterRef, { current: nextSeq }, { merge: true });
+        
+        const numericStr = nextSeq.toString().padStart(4, '0');
+        const newOrderRef = doc(db, 'orders', numericStr);
+        transaction.set(newOrderRef, { ...orderData, id: numericStr });
+        return numericStr;
+      });
+      
+      const newOrder = { ...orderData, id: orderId };
       try {
         const savedOrders = localStorage.getItem('customer_orders');
         const currentOrders = savedOrders ? JSON.parse(savedOrders) : [];
@@ -330,7 +343,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         console.error('Failed to save order to local storage', err);
       }
       
-      return docRef.id;
+      return orderId;
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, 'orders');
       return '';

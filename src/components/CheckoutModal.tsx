@@ -137,13 +137,12 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
             ? `${config.fixedDeliveryTime} min`
             : `${config.minPickupTime} a ${config.maxPickupTime} min`);
 
-      const shortOrderId = orderId.substring(0, 4).toUpperCase();
       const now = new Date();
       const dateStr = now.toLocaleDateString('pt-BR');
       const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
       let wppMessage = `#### NOVO PEDIDO ####\n\n`;
-      wppMessage += `#️⃣   Nº pedido: ${shortOrderId}\n`;
+      wppMessage += `#️⃣   Nº pedido: ${orderId}\n`;
       wppMessage += `feito em ${dateStr} ${timeStr}\n\n`;
       wppMessage += `👤   ${name.trim()}\n`;
       wppMessage += `📞   ${phone.trim()}\n\n`;

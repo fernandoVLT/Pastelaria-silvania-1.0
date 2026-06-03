@@ -88,29 +88,18 @@ export function AdminOrders() {
     // Only process when orders are loaded
     if (loading) return;
     
-    const autoPrintEnabled = config.printConfig?.autoPrint ?? true;
-    const autoPrintDelivery = config.printConfig?.autoPrintDelivery ?? true;
-    const autoPrintPickup = config.printConfig?.autoPrintPickup ?? true;
-    
-    // Check for new orders in 'Feito' status that haven't been printed yet
+    // Check for new orders in 'Feito' status to mark them as processed (so we don't track them as new)
     const unprintedNewOrders = orders.filter(
       (o) => o.status === 'Feito' && !printedOrdersRef.current.has(o.id!)
     );
     
     if (unprintedNewOrders.length > 0) {
-      setTimeout(() => {
-        unprintedNewOrders.forEach((order) => {
-          if (!printedOrdersRef.current.has(order.id!)) {
-            printedOrdersRef.current.add(order.id!);
-            if (autoPrintEnabled) {
-              const isDelivery = order.orderType === 'Delivery';
-              if ((isDelivery && autoPrintDelivery) || (!isDelivery && autoPrintPickup)) {
-                handlePrint(order);
-              }
-            }
-          }
-        });
-      }, 500);
+      unprintedNewOrders.forEach((order) => {
+        if (!printedOrdersRef.current.has(order.id!)) {
+          printedOrdersRef.current.add(order.id!);
+          // Removed automatic handlePrint(order) as requested
+        }
+      });
     }
     
     // Also add to set if they are already past 'Feito' so we don't accidentally print them later
@@ -120,7 +109,7 @@ export function AdminOrders() {
        }
     });
 
-  }, [orders, loading, config.printConfig?.autoPrint, config.printConfig?.autoPrintDelivery, config.printConfig?.autoPrintPickup]);
+  }, [orders, loading]);
 
   const filteredOrders = orders.filter(order => {
     const orderDate = new Date(order.createdAt);

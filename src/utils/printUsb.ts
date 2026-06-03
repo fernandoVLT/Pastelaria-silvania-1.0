@@ -52,7 +52,7 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
   enc.newline(2);
   
   enc.alignLeft();
-  enc.text(`Pedido: #${order.id?.substring(0, 6).toUpperCase()}`);
+  enc.text(`Pedido: #${order.id}`);
   enc.newline();
   enc.text(`Data: ${new Date(order.createdAt).toLocaleString()}`);
   enc.newline();
