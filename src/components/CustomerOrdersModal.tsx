@@ -8,9 +8,10 @@ import { doc, getDoc } from 'firebase/firestore';
 
 interface Props {
   onClose: () => void;
+  onReorder?: (orderItems: any[]) => void;
 }
 
-export function CustomerOrdersModal({ onClose }: Props) {
+export function CustomerOrdersModal({ onClose, onReorder }: Props) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -104,8 +105,16 @@ export function CustomerOrdersModal({ onClose }: Props) {
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                       {order.orderType}
                     </span>
-                    <span className="font-black text-gray-900 text-lg font-mono">
+                    <span className="font-black text-gray-900 text-lg font-mono flex items-center gap-4">
                       {formatCurrency(order.total)}
+                      {onReorder && (
+                        <button 
+                          onClick={() => onReorder(order.items)}
+                          className="bg-brand-red text-white text-xs px-3 py-1.5 rounded-full uppercase tracking-widest font-black hover:bg-brand-red-dark transition-colors"
+                        >
+                          Refazer Pedido
+                        </button>
+                      )}
                     </span>
                   </div>
                 </div>
