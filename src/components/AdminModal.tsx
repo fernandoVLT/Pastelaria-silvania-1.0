@@ -446,10 +446,18 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                           />
                           <span className="text-xs text-gray-700">Imprimir pedidos de <strong>Retirada</strong></span>
                         </label>
-                        <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                           <p className="text-[10px] text-blue-700 font-medium">
-                              <strong>Dica de Impressão Silenciosa (Sem tela):</strong> Sistemas web sempre abrem a tela de confirmação de impressão por segurança. Para que a impressão vá <span className="underline">direto para a impressora</span>, você deve configurar o <strong>Modo Kiosk</strong> no atalho do seu Google Chrome (adicionando <code>--kiosk-printing</code> no atalho do atalho).
-                           </p>
+                        <div className="mt-4 p-4 bg-sky-50 border border-sky-200 rounded-xl shadow-sm">
+                          <h5 className="text-xs font-bold text-sky-900 uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <Store className="w-4 h-4" />
+                            Impressão Silenciosa (Sem Janela)
+                          </h5>
+                          <p className="text-xs text-sky-800 font-medium mb-2 leading-relaxed">
+                            Navegadores de internet sempre abrem uma tela antes de imprimir por segurança. Para pular essa tela e imprimir direto, você tem duas opções:
+                          </p>
+                          <ul className="text-xs text-sky-800 list-disc pl-5 mt-2 space-y-2 leading-relaxed opacity-90">
+                            <li><strong>Opção 1 (WebUSB abaixo):</strong> Conecte sua impressora térmica via USB e clique no botão escuro "Selecionar Impressora" abaixo.</li>
+                            <li><strong>Opção 2 (Modo Kiosk):</strong> Se usar a impressão padrão, altere o atalho do Google Chrome no seu computador, adicionando <code>--kiosk-printing</code> no final do "Destino" nas propriedades do atalho. Toda vez que abrir o sistema por esse atalho, a janela de impressão será invisível.</li>
+                          </ul>
                         </div>
                         <div className="mt-2 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
                           <h5 className="text-[10px] uppercase font-bold tracking-widest text-gray-700 mb-2">Impressão Direta USB / HID</h5>

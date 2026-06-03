@@ -3,6 +3,8 @@ import { formatCurrency } from '../utils/formatCurrency';
 import { useStore } from '../contexts/StoreContext';
 import { useEffect, useState } from 'react';
 import { Order } from '../types';
+import { db } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface Props {
   onClose: () => void;
@@ -10,14 +12,39 @@ interface Props {
 
 export function CustomerOrdersModal({ onClose }: Props) {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('customer_orders');
-      if (saved) {
-        setOrders(JSON.parse(saved));
-      }
-    } catch(e) {}
+    async function loadOrders() {
+      try {
+        const saved = localStorage.getItem('customer_orders');
+        if (saved) {
+          const localOrders: Order[] = JSON.parse(saved);
+          
+          // Update orders with latest values from Firestore
+          const updatedOrders = await Promise.all(localOrders.map(async (order) => {
+            if (order.id) {
+              try {
+                const orderDoc = await getDoc(doc(db, 'orders', order.id));
+                if (orderDoc.exists()) {
+                  const data = orderDoc.data() as Partial<Order>;
+                  return { ...order, status: data.status || order.status };
+                }
+              } catch (err) {
+                console.error("Failed to fetch order", err);
+              }
+            }
+            return order;
+          }));
+          
+          setOrders(updatedOrders);
+          localStorage.setItem('customer_orders', JSON.stringify(updatedOrders));
+        }
+      } catch(e) {}
+      setIsLoading(false);
+    }
+    
+    loadOrders();
   }, []);
 
   return (
@@ -33,7 +60,12 @@ export function CustomerOrdersModal({ onClose }: Props) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 bg-gray-50 custom-scrollbar">
-          {orders.length === 0 ? (
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <div className="w-8 h-8 rounded-full border-4 border-gray-200 border-t-brand-red animate-spin mb-4"></div>
+              <p className="font-bold uppercase tracking-widest text-sm">Carregando...</p>
+            </div>
+          ) : orders.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <ShoppingBag className="w-16 h-16 mb-4 opacity-50" />
               <p className="font-bold uppercase tracking-widest text-sm">Nenhum pedido recente</p>

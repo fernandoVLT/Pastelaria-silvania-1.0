@@ -18,9 +18,9 @@ export function Header({ cartItemCount, onOpenMobileCart, searchQuery, setSearch
 
   return (
     <header className="bg-brand-red border-b border-brand-red-dark text-white sticky top-0 z-50 shadow-md">
-      <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 cursor-pointer select-none shrink-0" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
-          <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center font-black text-brand-red text-2xl font-display pt-1 shadow-inner relative overflow-hidden shrink-0">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 flex-shrink-0 cursor-pointer select-none" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full flex items-center justify-center font-black text-brand-red text-xl sm:text-2xl font-display pt-1 shadow-inner relative overflow-hidden shrink-0">
             {config.logoUrl ? (
               <img src={config.logoUrl} alt="Logo" className="w-full h-full object-cover" />
             ) : (
@@ -34,20 +34,20 @@ export function Header({ cartItemCount, onOpenMobileCart, searchQuery, setSearch
           </div>
         </div>
         
-        <div className="flex-1 max-w-md ml-4 mr-0 sm:mx-4">
+        <div className="flex-1 max-w-md ml-1 sm:ml-4 mr-0 sm:mx-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60" />
+            <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60" />
             <input 
               type="text" 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Buscar..."
-              className="w-full bg-black/10 border border-white/20 rounded-full py-2 pl-10 pr-4 text-sm text-white placeholder:text-white/60 focus:outline-none focus:bg-black/20 focus:border-white/40 transition-colors"
+              className="w-full bg-black/10 border border-white/20 rounded-full py-1.5 sm:py-2 pl-8 sm:pl-10 pr-3 sm:pr-4 text-xs sm:text-sm text-white placeholder:text-white/60 focus:outline-none focus:bg-black/20 focus:border-white/40 transition-colors"
             />
           </div>
         </div>
         
-        <div className="flex items-center gap-4 sm:gap-6">
+        <div className="flex items-center gap-1 sm:gap-6">
           <nav className="hidden lg:flex items-center gap-6 font-bold text-sm tracking-wide">
             <a href="#" className="text-white hover:text-brand-yellow transition-colors">Início</a>
             <a href="#cardapio" className="text-white hover:text-brand-yellow transition-colors">Cardápio</a>
@@ -55,28 +55,28 @@ export function Header({ cartItemCount, onOpenMobileCart, searchQuery, setSearch
           
           <button 
             onClick={onOpenCustomerOrders}
-            className="p-2 transition-colors text-white hover:text-brand-yellow relative"
+            className="p-1.5 sm:p-2 transition-colors text-white hover:text-brand-yellow relative"
             title="Meus Pedidos"
           >
-            <ClipboardList className="w-6 h-6" />
+            <ClipboardList className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
           
           <button 
             onClick={() => setShowFavorites(!showFavorites)}
-            className={`p-2 transition-colors relative ${showFavorites ? 'text-brand-yellow' : 'text-white hover:text-brand-yellow'}`}
+            className={`p-1.5 sm:p-2 transition-colors relative ${showFavorites ? 'text-brand-yellow' : 'text-white hover:text-brand-yellow'}`}
             title="Favoritos"
           >
-            <Heart className="w-6 h-6" fill={showFavorites ? "currentColor" : "none"} />
+            <Heart className="w-5 h-5 sm:w-6 sm:h-6" fill={showFavorites ? "currentColor" : "none"} />
           </button>
 
           <button 
             onClick={onOpenMobileCart}
-            className="md:hidden relative p-2 text-white hover:text-brand-yellow transition-colors flex items-center gap-4"
+            className="md:hidden relative p-1.5 sm:p-2 text-white hover:text-brand-yellow transition-colors flex items-center gap-4"
           >
             <div className="relative">
-              <ShoppingBag className="w-6 h-6" />
+              <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
               {cartItemCount > 0 && (
-                <span className="absolute top-0 right-0 w-5 h-5 bg-brand-yellow text-brand-red font-bold text-[10px] rounded-full flex items-center justify-center transform translate-x-1 -translate-y-1 shadow-sm">
+                <span className="absolute top-0 right-0 w-4 h-4 sm:w-5 sm:h-5 bg-brand-yellow text-brand-red font-bold text-[9px] sm:text-[10px] rounded-full flex items-center justify-center transform translate-x-1 -translate-y-1 shadow-sm">
                   {cartItemCount}
                 </span>
               )}

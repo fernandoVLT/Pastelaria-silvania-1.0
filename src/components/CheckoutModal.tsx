@@ -1,6 +1,7 @@
-import { X, QrCode, CreditCard, Wallet, Utensils, CheckCircle, ExternalLink, MapPin, Store, Copy, Banknote } from 'lucide-react';
+import { X, QrCode, CreditCard, Wallet, Utensils, CheckCircle, ExternalLink, MapPin, Store, Copy, Banknote, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import toast from 'react-hot-toast';
 import { useStore } from '../contexts/StoreContext';
 import { CartItem, PaymentMethod, OrderType } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
@@ -38,7 +39,6 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   const [neighborhood, setNeighborhood] = useState(ALLOWED_NEIGHBORHOODS[0]);
   const [street, setStreet] = useState('');
   const [addressNumber, setAddressNumber] = useState('');
-  const [observation, setObservation] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [isOrderSent, setIsOrderSent] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -50,12 +50,35 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   const handleSubmitOrder = async () => {
     const minOrder = config.minOrderValue || 20;
     if (itemsTotal < minOrder) {
-      alert(`O pedido mínimo é de ${formatCurrency(minOrder)} em produtos.`);
+      toast.custom(
+        (t) => (
+          <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-sm w-full bg-white shadow-2xl rounded-2xl pointer-events-auto flex p-5 border border-brand-red/20`}>
+            <div className="flex-shrink-0 pt-0.5">
+              <AlertCircle className="h-10 w-10 text-brand-red" />
+            </div>
+            <div className="ml-4 flex-1">
+              <p className="text-sm font-black text-gray-900 uppercase tracking-widest">Pedido Mínimo</p>
+              <p className="mt-1 text-sm text-gray-600 font-medium leading-relaxed">
+                Para finalizar, adicione mais produtos. O valor mínimo é de <span className="font-bold text-brand-red">{formatCurrency(minOrder)}</span> em itens.
+              </p>
+            </div>
+          </div>
+        ),
+        { duration: 5000, position: 'top-center' }
+      );
       return;
     }
 
     if (!name.trim() || !phone.trim() || !paymentMethod) {
-      alert('Preencha seu nome, WhatsApp e a forma de pagamento.');
+      toast.error('Preencha seu nome, WhatsApp e a forma de pagamento.', {
+        style: {
+          borderRadius: '12px',
+          background: '#333',
+          color: '#fff',
+          fontSize: '14px',
+          fontWeight: 'bold',
+        }
+      });
       return;
     }
 
@@ -101,10 +124,6 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
           number: addressNumber.trim()
         };
       }
-      
-      if (observation.trim()) {
-        orderData.observation = observation.trim();
-      }
 
       const orderId = await createOrder(orderData);
 
@@ -144,10 +163,6 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
         }
         wppMessage += `💵 ${i.quantity} x ${formatCurrency(i.product.price)} = ${formatCurrency(i.quantity * i.product.price)}\n\n`;
       });
-      
-      if (observation.trim()) {
-        wppMessage += `*Observações:*\n${observation.trim()}\n\n`;
-      }
       
       wppMessage += `-------------------------------\n\n`;
       wppMessage += `SUBTOTAL: ${formatCurrency(itemsTotal)}\n`;
@@ -330,17 +345,11 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
               )}
             </div>
 
-            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2 whitespace-normal leading-relaxed text-brand-red">
-                Mensagem de observação (Não é possível editar essa observação após envio)
-              </label>
-              <textarea
-                 rows={2}
-                 value={observation}
-                 onChange={(e) => setObservation(e.target.value)}
-                 placeholder="Ex: Tirar cebola, troco para 50..."
-                 className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-red text-sm placeholder:font-normal resize-none font-medium"
-              ></textarea>
+            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-brand-red shrink-0 mt-0.5" />
+              <p className="text-[10px] font-bold tracking-widest uppercase mb-0 whitespace-normal leading-relaxed text-brand-red">
+                Mensagem de observação<br/><span className="text-gray-500 font-medium">(Não é possível editar observação após envio do pedido)</span>
+              </p>
             </div>
 
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
@@ -401,7 +410,15 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                             <button 
                               onClick={() => {
                                 navigator.clipboard.writeText(pixPayload);
-                                alert('Código Copia e Cola copiado com sucesso!');
+                                toast.success('Código PIX copiado com sucesso!', {
+                                  style: {
+                                    borderRadius: '12px',
+                                    background: '#333',
+                                    color: '#fff',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                  }
+                                });
                               }}
                               className="px-4 bg-brand-red text-white flex items-center justify-center rounded-r-xl tracking-widest uppercase text-[10px] font-bold hover:bg-brand-red-dark transition-colors"
                             >
