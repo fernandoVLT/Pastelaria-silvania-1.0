@@ -172,6 +172,12 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       
       wppMessage += `PAGAMENTO\n`;
       wppMessage += `*${paymentMethod}*: ${formatCurrency(finalTotal)}\n\n`;
+
+      if (paymentMethod === 'Pix' && config.pixKey) {
+        const pixPayload = generatePixCode(config.pixKey || '', config.pixReceiverName || config.logoText, config.pixReceiverCity || 'Cidade', finalTotal);
+        wppMessage += `*_🧾 Copie e cole na sua instituição de pagamento:_* \n${pixPayload}\n\n`;
+      }
+      
       wppMessage += `⏱️ *Tempo Estimado:* ${timeMessage}`;
 
       const wpNumber = config.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';

@@ -487,6 +487,7 @@ export function AdminOrders() {
                 {order.status === 'Feito' && (
                   <button 
                     onClick={() => {
+                       handlePrint(order);
                        handleStatusChange(order, 'Em Preparo');
                     }}
                     className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-1.5 rounded-md text-[9px] font-bold tracking-widest uppercase transition-colors"
