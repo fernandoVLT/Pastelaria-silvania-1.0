@@ -88,18 +88,29 @@ export function AdminOrders() {
     // Only process when orders are loaded
     if (loading) return;
     
+    const autoPrintEnabled = config.printConfig?.autoPrint ?? true;
+    const autoPrintDelivery = config.printConfig?.autoPrintDelivery ?? true;
+    const autoPrintPickup = config.printConfig?.autoPrintPickup ?? true;
+    
     // Check for new orders in 'Feito' status to mark them as processed (so we don't track them as new)
     const unprintedNewOrders = orders.filter(
       (o) => o.status === 'Feito' && !printedOrdersRef.current.has(o.id!)
     );
     
     if (unprintedNewOrders.length > 0) {
-      unprintedNewOrders.forEach((order) => {
-        if (!printedOrdersRef.current.has(order.id!)) {
-          printedOrdersRef.current.add(order.id!);
-          // Removed automatic handlePrint(order) as requested
-        }
-      });
+      setTimeout(() => {
+        unprintedNewOrders.forEach((order) => {
+          if (!printedOrdersRef.current.has(order.id!)) {
+            printedOrdersRef.current.add(order.id!);
+            if (autoPrintEnabled) {
+              const isDelivery = order.orderType === 'Delivery';
+              if ((isDelivery && autoPrintDelivery) || (!isDelivery && autoPrintPickup)) {
+                handlePrint(order, true);
+              }
+            }
+          }
+        });
+      }, 500);
     }
     
     // Also add to set if they are already past 'Feito' so we don't accidentally print them later
@@ -259,21 +270,23 @@ export function AdminOrders() {
     setCancelingOrder(null);
   };
 
-  const handlePrint = async (order: Order) => {
-    toast.success('Enviando para impressora...');
+  const handlePrint = async (order: Order, isAutoPrint: boolean = false) => {
+    if (!isAutoPrint) toast.success('Enviando para impressora...');
     
     // Check if USB printing is enabled
     if (config.printConfig?.usbPrinter) {
       try {
         const success = await printDirectToUsb(order);
         if (success) {
-          toast.success('Impresso via USB com sucesso!');
+          if (!isAutoPrint) toast.success('Impresso via USB com sucesso!');
           return;
         }
       } catch (err) {
          console.error('USB print failed, falling back', err);
       }
     }
+
+    if (isAutoPrint) return;
 
     // Check if the order is already in the queue to prevent duplicates
     if (!printQueue.some(o => o.id === order.id)) {
@@ -487,7 +500,6 @@ export function AdminOrders() {
                 {order.status === 'Feito' && (
                   <button 
                     onClick={() => {
-                       handlePrint(order);
                        handleStatusChange(order, 'Em Preparo');
                     }}
                     className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-1.5 rounded-md text-[9px] font-bold tracking-widest uppercase transition-colors"
