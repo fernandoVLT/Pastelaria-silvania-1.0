@@ -14,7 +14,7 @@ import { useStore } from './contexts/StoreContext';
 import { CartItem, Category, Product } from './types';
 import { cn } from './utils/cn';
 import { MessageSquare } from 'lucide-react';
-import { Toaster, toast } from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 
 export default function App() {
   const { products, config, computedIsOpen, favorites, notifyAdminCartStarted } = useStore();
@@ -53,43 +53,6 @@ export default function App() {
 
   const handleRemoveFromCart = (id: string) => {
     setCartItems(prev => prev.filter(item => item.id !== id));
-  };
-
-  const handleReorder = (orderItems: any[]) => {
-    if (!computedIsOpen) {
-      toast.error("A loja está fechada no momento. Os pedidos estão suspensos.");
-      return;
-    }
-
-    let addedCount = 0;
-    const newCartItems: CartItem[] = [];
-    
-    orderItems.forEach(item => {
-      const match = products.find(p => p.name === item.productName);
-      if (match) {
-        newCartItems.push({
-          id: crypto.randomUUID(),
-          product: match,
-          quantity: item.quantity,
-          observation: item.observation
-        });
-        addedCount++;
-      }
-    });
-
-    if (addedCount > 0) {
-       setCartItems(prev => {
-         if (prev.length === 0 && config.notifyOnCartStart) {
-           notifyAdminCartStarted?.().catch(console.error);
-         }
-         return [...prev, ...newCartItems];
-       });
-       toast.success(`${addedCount} itens adicionados ao carrinho!`);
-       setShowCustomerOrders(false);
-       setIsMobileCartOpen(true); // Open cart immediately to review
-    } else {
-       toast.error("Nenhum item deste pedido está disponível no cardápio atualmente.");
-    }
   };
 
   const total = cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
@@ -283,10 +246,7 @@ export default function App() {
       )}
 
       {showCustomerOrders && (
-        <CustomerOrdersModal 
-          onClose={() => setShowCustomerOrders(false)} 
-          onReorder={handleReorder}
-        />
+        <CustomerOrdersModal onClose={() => setShowCustomerOrders(false)} />
       )}
 
       {isAdminOpen && (

@@ -92,7 +92,7 @@ export function AdminOrders() {
     const autoPrintDelivery = config.printConfig?.autoPrintDelivery ?? true;
     const autoPrintPickup = config.printConfig?.autoPrintPickup ?? true;
     
-    // Check for new orders in 'Feito' status to mark them as processed (so we don't track them as new)
+    // Check for new orders in 'Feito' status that haven't been printed yet
     const unprintedNewOrders = orders.filter(
       (o) => o.status === 'Feito' && !printedOrdersRef.current.has(o.id!)
     );
@@ -105,7 +105,7 @@ export function AdminOrders() {
             if (autoPrintEnabled) {
               const isDelivery = order.orderType === 'Delivery';
               if ((isDelivery && autoPrintDelivery) || (!isDelivery && autoPrintPickup)) {
-                handlePrint(order, true);
+                handlePrint(order);
               }
             }
           }
@@ -120,7 +120,7 @@ export function AdminOrders() {
        }
     });
 
-  }, [orders, loading]);
+  }, [orders, loading, config.printConfig?.autoPrint, config.printConfig?.autoPrintDelivery, config.printConfig?.autoPrintPickup]);
 
   const filteredOrders = orders.filter(order => {
     const orderDate = new Date(order.createdAt);
@@ -270,15 +270,15 @@ export function AdminOrders() {
     setCancelingOrder(null);
   };
 
-  const handlePrint = async (order: Order, isAutoPrint: boolean = false) => {
-    if (!isAutoPrint) toast.success('Enviando para impressora...');
-
+  const handlePrint = async (order: Order) => {
+    toast.success('Enviando para impressora...');
+    
     // Check if USB printing is enabled
     if (config.printConfig?.usbPrinter) {
       try {
         const success = await printDirectToUsb(order);
         if (success) {
-          if (!isAutoPrint) toast.success('Impresso via USB com sucesso!');
+          toast.success('Impresso via USB com sucesso!');
           return;
         }
       } catch (err) {
@@ -286,7 +286,6 @@ export function AdminOrders() {
       }
     }
 
-    // Fallback: local browser print queue
     // Check if the order is already in the queue to prevent duplicates
     if (!printQueue.some(o => o.id === order.id)) {
       setPrintQueue(prev => [...prev, order]);

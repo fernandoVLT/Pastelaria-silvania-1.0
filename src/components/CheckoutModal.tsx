@@ -137,12 +137,13 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
             ? `${config.fixedDeliveryTime} min`
             : `${config.minPickupTime} a ${config.maxPickupTime} min`);
 
+      const shortOrderId = orderId.substring(0, 4).toUpperCase();
       const now = new Date();
       const dateStr = now.toLocaleDateString('pt-BR');
       const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
       let wppMessage = `#### NOVO PEDIDO ####\n\n`;
-      wppMessage += `#️⃣   Nº pedido: ${orderId}\n`;
+      wppMessage += `#️⃣   Nº pedido: ${shortOrderId}\n`;
       wppMessage += `feito em ${dateStr} ${timeStr}\n\n`;
       wppMessage += `👤   ${name.trim()}\n`;
       wppMessage += `📞   ${phone.trim()}\n\n`;
@@ -172,12 +173,6 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       
       wppMessage += `PAGAMENTO\n`;
       wppMessage += `*${paymentMethod}*: ${formatCurrency(finalTotal)}\n\n`;
-
-      if (paymentMethod === 'Pix' && config.pixKey) {
-        const pixPayload = generatePixCode(config.pixKey || '', config.pixReceiverName || config.logoText, config.pixReceiverCity || 'Cidade', finalTotal);
-        wppMessage += `*_🧾 Copie e cole na sua instituição de pagamento:_* \n${pixPayload}\n\n`;
-      }
-      
       wppMessage += `⏱️ *Tempo Estimado:* ${timeMessage}`;
 
       const wpNumber = config.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';

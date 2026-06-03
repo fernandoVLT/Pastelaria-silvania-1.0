@@ -21,7 +21,7 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
       </div>
       
       <div className="receipt-details text-xs space-y-1 mb-4 border-y border-dashed border-gray-400 py-2">
-        <div><strong>Pedido:</strong> #{order.id}</div>
+        <div><strong>Pedido:</strong> #{order.id?.substring(0,6).toUpperCase()}</div>
         <div><strong>Data:</strong> {new Date(order.createdAt).toLocaleString()}</div>
         <div><strong>Cliente:</strong> {order.customerName}</div>
         {order.customerPhone && <div><strong>Tel:</strong> {order.customerPhone}</div>}
@@ -103,7 +103,6 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
           .receipt-container * { box-sizing: border-box; }
         `}
       </style>
-      
       <div className="page-break">
         {renderVia('kitchen')}
       </div>
