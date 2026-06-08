@@ -14,7 +14,7 @@ import { useStore } from './contexts/StoreContext';
 import { CartItem, Category, Product } from './types';
 import { cn } from './utils/cn';
 import { MessageSquare } from 'lucide-react';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 
 export default function App() {
   const { products, config, computedIsOpen, favorites, notifyAdminCartStarted } = useStore();
@@ -37,7 +37,7 @@ export default function App() {
 
   const handleAddToCart = (item: Omit<CartItem, 'id'>) => {
     if (!computedIsOpen) {
-      alert("A loja está fechada no momento. Os pedidos estão suspensos.");
+      toast.error("A loja está fechada no momento. Os pedidos estão suspensos.");
       return;
     }
     setCartItems(prev => {
@@ -57,7 +57,7 @@ export default function App() {
 
   const handleReorder = (historicItems: any[]) => {
     if (!computedIsOpen) {
-      alert("A loja está fechada no momento. Os pedidos estão suspensos.");
+      toast.error("A loja está fechada no momento. Os pedidos estão suspensos.");
       return;
     }
     
@@ -124,7 +124,34 @@ export default function App() {
 
   return (
     <div className="min-h-screen pb-24 md:pb-8 flex flex-col bg-gray-50 font-sans">
-      <Toaster position="top-right" toastOptions={{ duration: 4000, style: { background: '#333', color: '#fff', fontSize: '14px', fontWeight: 'bold' } }} />
+      <Toaster 
+        position="top-center" 
+        toastOptions={{ 
+          duration: 4000, 
+          style: { 
+            background: 'white', 
+            color: '#111827', 
+            fontSize: '14px', 
+            fontWeight: '600',
+            borderRadius: '16px',
+            padding: '16px 20px',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+            border: '1px solid #F3F4F6'
+          },
+          success: {
+            iconTheme: {
+              primary: '#ef4444', // brand-red
+              secondary: 'white',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#111827',
+              secondary: 'white',
+            },
+          },
+        }} 
+      />
       <HeroSplash />
       {!computedIsOpen && (
         <div className="bg-red-600 text-white text-center py-4 px-4 text-xs sm:text-sm font-black tracking-widest uppercase relative z-[60] shadow-md border-b border-red-700 flex items-center justify-center gap-2">

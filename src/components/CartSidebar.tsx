@@ -56,7 +56,9 @@ export function CartSidebar({ items, onRemove, onCheckout }: Props) {
               )}
             </div>
             <div className="flex flex-col items-end gap-2">
-               <span className="font-mono text-xs text-brand-red font-bold">{formatCurrency(item.product.price * item.quantity)}</span>
+               <span className="font-mono text-xs text-brand-red font-bold">
+                 {item.product.price === 0 ? 'Sem Valor' : formatCurrency(item.product.price * item.quantity)}
+               </span>
                <button 
                  onClick={() => onRemove(item.id)}
                  className="text-gray-400 hover:text-brand-red transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1"

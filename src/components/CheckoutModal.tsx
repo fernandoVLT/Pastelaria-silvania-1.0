@@ -85,7 +85,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
 
     if (orderType === 'Delivery') {
       if (!street.trim() || !addressNumber.trim()) {
-        alert('Preencha a rua e o número para entrega.');
+        toast.error('Preencha a rua e o número para entrega.');
         return;
       }
     }
@@ -219,7 +219,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       
       setIsOrderSent(true);
     } catch (e) {
-      alert('Houve um erro ao enviar seu pedido. Tente novamente.');
+      toast.error('Houve um erro ao enviar seu pedido. Tente novamente.');
     } finally {
       setIsCreating(false);
     }

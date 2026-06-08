@@ -262,7 +262,7 @@ export function AdminOrders() {
         await updateOrderStatus(order.id!, newStatus);
       }
     } catch (e) {
-      alert('Erro ao atualizar status do pedido');
+      toast.error('Erro ao atualizar status do pedido');
     }
   };
 

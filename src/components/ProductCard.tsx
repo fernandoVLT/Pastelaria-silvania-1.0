@@ -46,7 +46,9 @@ export const ProductCard = memo(function ProductCard({ product, onClick }: Props
         </div>
 
         <div className="flex sm:flex-col items-center sm:items-start justify-between w-full mt-auto">
-          <span className="font-mono text-base sm:text-xl text-brand-red font-black whitespace-nowrap">{formatCurrency(product.price)}</span>
+          <span className="font-mono text-base sm:text-xl text-brand-red font-black whitespace-nowrap">
+            {product.price === 0 ? 'Sem Valor' : formatCurrency(product.price)}
+          </span>
           <button className="z-10 mt-0 sm:mt-4 px-3 py-1.5 sm:w-full sm:py-4 border border-brand-red/20 sm:border-gray-200 bg-red-50 sm:bg-gray-50 text-brand-red group-hover:bg-brand-red group-hover:border-brand-red group-hover:text-white transition-all uppercase text-[9px] sm:text-[10px] font-black tracking-widest sm:text-gray-600 rounded-lg sm:rounded-xl">
             <span className="hidden sm:inline">Adicionar à Sacola</span>
             <span className="sm:hidden">Add</span>
