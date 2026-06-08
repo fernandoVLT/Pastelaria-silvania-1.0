@@ -95,8 +95,10 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
     const orderItems = items.map(i => ({
       productName: i.product.name,
       category: i.product.category,
+      description: i.product.description,
       quantity: i.quantity,
-      price: i.product.price
+      price: i.product.price,
+      observation: i.observation
     }));
 
     try {

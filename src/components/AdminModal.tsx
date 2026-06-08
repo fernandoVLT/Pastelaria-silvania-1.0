@@ -578,6 +578,43 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                 </div>
 
                 <div>
+                  <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Gerenciar Categorias</label>
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                    <div className="flex gap-2 mb-3">
+                      <input 
+                        type="text" 
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const val = e.currentTarget.value.trim();
+                            if (val && !formConfig.categories.includes(val)) {
+                              setFormConfig({ ...formConfig, categories: [...formConfig.categories, val] });
+                              e.currentTarget.value = '';
+                            }
+                          }
+                        }}
+                        placeholder="Nova Categoria (pressione Enter)" 
+                        className="flex-1 bg-white border border-gray-200 text-sm p-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red font-bold uppercase"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                       {formConfig.categories.map((cat) => (
+                         <div key={cat} className="flex gap-1 items-center bg-white border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold uppercase">
+                           <span>{cat}</span>
+                           <button 
+                             type="button"
+                             onClick={() => setFormConfig({ ...formConfig, categories: formConfig.categories.filter(c => c !== cat) })}
+                             className="text-gray-400 hover:text-red-500 ml-1"
+                           >
+                             <X className="w-3 h-3" />
+                           </button>
+                         </div>
+                       ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
                   <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Senha do Admin</label>
                   <input 
                     type="text" 
@@ -900,17 +937,28 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Categoria</label>
-                    <input 
-                      list="categories"
+                    <select
                       required
                       value={editingProduct.category}
-                      onChange={e => setEditingProduct({...editingProduct, category: e.target.value})}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm font-bold uppercase"
-                      placeholder="EX: BEBIDAS"
-                    />
-                    <datalist id="categories">
-                      {Array.from(new Set([...config.categories, ...products.map(p => p.category)])).map(c => <option key={c} value={c} />)}
-                    </datalist>
+                      onChange={e => {
+                        if (e.target.value === '__NEW__') {
+                          const newCat = prompt('Digite o nome da nova categoria:');
+                          if (newCat) setEditingProduct({...editingProduct, category: newCat.trim()});
+                        } else {
+                          setEditingProduct({...editingProduct, category: e.target.value});
+                        }
+                      }}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm font-bold uppercase cursor-pointer"
+                    >
+                      <option value="" disabled>Selecione...</option>
+                      {Array.from(new Set([...config.categories, ...products.map(p => p.category)])).filter(c => c).map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      {editingProduct.category && !config.categories.includes(editingProduct.category) && !products.some(p => p.category === editingProduct.category) && (
+                        <option value={editingProduct.category}>{editingProduct.category}</option>
+                      )}
+                      <option value="__NEW__" className="text-brand-red font-bold">+ Nova Categoria...</option>
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Preço (R$)</label>

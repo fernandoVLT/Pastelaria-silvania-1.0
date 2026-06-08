@@ -47,7 +47,7 @@ export function AdminOrders() {
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
-  const [activeTab, setActiveTab] = useState<'ativos' | 'historico'>('ativos');
+  const [activeTab, setActiveTab] = useState<'ativos' | 'historico' | 'fila_impressao'>('ativos');
 
   const [cancelingOrder, setCancelingOrder] = useState<Order | null>(null);
   const [cancelReason, setCancelReason] = useState('Produto Indisponível');
@@ -393,10 +393,16 @@ export function AdminOrders() {
                 <div className="font-medium text-[9px] text-gray-600 mb-0.5">{order.items.length} itens:</div>
                 <ul className="text-[10px] space-y-0 text-gray-800">
                   {order.items.map((item, i) => (
-                    <li key={i} className="flex flex-col items-start leading-tight">
+                    <li key={i} className="flex flex-col items-start leading-tight mb-1">
                       <span><span className="font-bold mr-1">{item.quantity}x</span> {item.productName}</span>
                       {item.category && (
                         <span className="text-[8px] text-gray-500 font-bold tracking-widest pl-4">{item.category}</span>
+                      )}
+                      {item.description && (
+                        <span className="text-[9px] text-gray-500 font-medium pl-4">{item.description}</span>
+                      )}
+                      {item.observation && (
+                        <span className="text-[9px] text-gray-400 italic pl-4 font-medium">"{item.observation}"</span>
                       )}
                     </li>
                   ))}
@@ -415,6 +421,17 @@ export function AdminOrders() {
                 
                 {/* Quick Actions Component */}
                 <div className="flex gap-1 shrink-0">
+                  <button
+                    title="Adicionar à Fila de Impressão"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPrintQueue(prev => [...prev, order]);
+                      toast.success('Adicionado à fila de impressão');
+                    }}
+                    className="p-2 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
                   <button 
                     title="Enviar mensagem no WhatsApp"
                     onClick={async (e) => {
@@ -608,6 +625,12 @@ export function AdminOrders() {
               >
                 Histórico
               </button>
+              <button 
+                onClick={() => setActiveTab('fila_impressao')} 
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold tracking-widest uppercase transition-colors ${activeTab === 'fila_impressao' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Fila ({printQueue.length})
+              </button>
             </div>
           </div>
           
@@ -670,10 +693,72 @@ export function AdminOrders() {
           {renderColumn('Pronto', 'Pronto (Retirada)')}
           {renderColumn('A caminho', 'A Caminho')}
         </div>
-      ) : (
+      ) : activeTab === 'historico' ? (
         <div className="flex-1 overflow-x-auto pb-4 custom-scrollbar flex gap-6 snap-x snap-mandatory">
           {renderColumn('Entregue', 'Concluídos')}
           {renderColumn('Cancelado', 'Cancelados')}
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto pb-4 custom-scrollbar bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                <Printer className="w-6 h-6 text-brand-red" />
+                Fila de Impressão
+              </h3>
+              <p className="text-sm text-gray-500 font-medium mt-1">Pedidos aguardando para serem impressos.</p>
+            </div>
+            
+            <button
+               onClick={() => {
+                 setPrintQueue([]);
+                 setPrintingOrder(null);
+               }}
+               className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-xs font-bold tracking-widest uppercase transition-colors"
+               disabled={printQueue.length === 0}
+            >
+               Limpar Fila
+            </button>
+          </div>
+
+          {printQueue.length === 0 && !printingOrder ? (
+            <div className="text-center py-12 flex flex-col items-center">
+               <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-300">
+                 <Printer className="w-8 h-8" />
+               </div>
+               <p className="text-gray-500 font-medium">Nenhum pedido na fila de impressão.</p>
+            </div>
+          ) : (
+            <div className="space-y-4 max-w-3xl">
+              {printingOrder && (
+                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between animate-pulse">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold tracking-widest uppercase text-blue-500 mb-1">Imprimindo Agora</span>
+                    <span className="font-bold text-gray-900">{printingOrder.customerName} - Pedido #{printingOrder.id?.substring(0, 6) || 'N/A'}</span>
+                  </div>
+                  <Printer className="w-6 h-6 text-blue-500 animate-bounce" />
+                </div>
+              )}
+              {printQueue.slice(printingOrder ? 1 : 0).map((order, i) => (
+                <div key={order.id || i} className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-1">
+                       Posição #{printingOrder ? i + 2 : i + 1}
+                    </span>
+                    <span className="font-bold text-gray-900">{order.customerName} - Pedido #{order.id?.substring(0, 6) || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-gray-500 bg-white px-3 py-1.5 rounded-lg border border-gray-200">
+                      {formatCurrency(order.total)}
+                    </span>
+                    <span className="text-[10px] font-bold text-gray-400 bg-gray-200 px-3 py-1.5 rounded-lg uppercase tracking-widest">
+                      Aguardando
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

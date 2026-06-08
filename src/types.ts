@@ -37,6 +37,7 @@ export interface OrderItem {
   quantity: number;
   price: number;
   category?: string;
+  description?: string;
   observation?: string;
 }
 

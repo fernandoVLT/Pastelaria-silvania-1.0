@@ -47,6 +47,9 @@ export function CartSidebar({ items, onRemove, onCheckout }: Props) {
                  {item.product.category && (
                    <span className="text-[10px] text-gray-500 font-bold tracking-widest pl-9">{item.product.category}</span>
                  )}
+                 {item.product.description && (
+                   <span className="text-[10px] text-gray-400 font-medium pl-9 leading-tight">{item.product.description}</span>
+                 )}
               </h5>
               {item.observation && (
                 <p className="text-[10px] text-gray-500 italic font-medium pl-9">"{item.observation}"</p>

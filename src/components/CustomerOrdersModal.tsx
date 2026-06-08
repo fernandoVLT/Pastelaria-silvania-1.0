@@ -104,6 +104,12 @@ export function CustomerOrdersModal({ onClose, onReorder }: Props) {
                           {item.category && (
                             <span className="text-[10px] text-gray-400 font-bold tracking-widest pl-6">{item.category}</span>
                           )}
+                          {item.description && (
+                            <span className="text-[10px] text-gray-500 font-medium pl-6 leading-tight">{item.description}</span>
+                          )}
+                          {item.observation && (
+                            <span className="text-[10px] text-gray-400 italic font-medium pl-6">"{item.observation}"</span>
+                          )}
                         </span>
                         <span className="font-medium text-gray-900 font-mono pl-2 shrink-0 pt-0.5">
                           {formatCurrency(item.price * item.quantity)}
