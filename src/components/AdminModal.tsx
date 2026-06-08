@@ -11,7 +11,7 @@ import { AdminReports } from './AdminReports';
 
 export function AdminModal({ onClose }: { onClose: () => void }) {
   const { config, setConfig, products, addProduct, updateProduct, deleteProduct } = useStore();
-  const [activeTab, setActiveTab] = useState<'orders' | 'config' | 'products' | 'messages' | 'reports'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'config' | 'products' | 'messages' | 'pagamentos' | 'reports'>('orders');
 
   const [formConfig, setFormConfig] = useState(config);
   
@@ -98,6 +98,12 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
             className={`px-4 py-3 font-bold text-sm tracking-widest uppercase border-b-2 transition-colors ${activeTab === 'messages' ? 'border-brand-red text-brand-red' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
           >
             Mensagens WPP
+          </button>
+          <button 
+            onClick={() => setActiveTab('pagamentos')}
+            className={`px-4 py-3 font-bold text-sm tracking-widest uppercase border-b-2 transition-colors ${activeTab === 'pagamentos' ? 'border-brand-red text-brand-red' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+          >
+            Pagamentos
           </button>
           <button 
             onClick={() => setActiveTab('reports')}
@@ -660,6 +666,82 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                 >
                   <Save className="w-4 h-4" />
                   Salvar Configurações
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'pagamentos' && (
+            <div className="max-w-2xl space-y-6">
+              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm space-y-4">
+                <h3 className="font-black text-sm uppercase tracking-widest text-gray-900 mb-4">Banco do Brasil API (Pix)</h3>
+                
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={formConfig.bbPixConfig?.enabled || false}
+                      onChange={e => setFormConfig({...formConfig, bbPixConfig: { ...formConfig.bbPixConfig, enabled: e.target.checked } as any})}
+                      className="w-5 h-5 rounded border-gray-300 text-brand-red focus:ring-brand-red cursor-pointer"
+                    />
+                    <div>
+                      <div className="text-sm font-bold text-gray-900">Ativar Banco do Brasil PIX (Checkout)</div>
+                      <div className="text-[10px] text-gray-500">Gera QR Code automático via app-key. Requer Sandbox/Produção Credentials.</div>
+                    </div>
+                  </div>
+                  
+                  {formConfig.bbPixConfig?.enabled && (
+                    <div className="space-y-4 pt-3 border-t border-gray-200">
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Ambiente</label>
+                        <select 
+                          value={formConfig.bbPixConfig.isProduction ? 'true' : 'false'}
+                          onChange={e => setFormConfig({...formConfig, bbPixConfig: { ...formConfig.bbPixConfig, isProduction: e.target.value === 'true' } as any})}
+                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 text-sm font-bold"
+                        >
+                          <option value="false">Sandbox (Testes)</option>
+                          <option value="true">Produção (Necessário configurar mTLS depois)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Client ID (OAuth)</label>
+                        <input 
+                          type="text" 
+                          value={formConfig.bbPixConfig.clientId || ''} 
+                          onChange={e => setFormConfig({...formConfig, bbPixConfig: { ...formConfig.bbPixConfig, clientId: e.target.value } as any})}
+                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 font-mono text-sm"
+                          placeholder="Ex: eyJhbG..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Client Secret (OAuth)</label>
+                        <input 
+                          type="password" 
+                          value={formConfig.bbPixConfig.clientSecret || ''} 
+                          onChange={e => setFormConfig({...formConfig, bbPixConfig: { ...formConfig.bbPixConfig, clientSecret: e.target.value } as any})}
+                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 font-mono text-sm"
+                          placeholder="********"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Developer Application Key (app-key)</label>
+                        <input 
+                          type="text" 
+                          value={formConfig.bbPixConfig.developerAppKey || ''} 
+                          onChange={e => setFormConfig({...formConfig, bbPixConfig: { ...formConfig.bbPixConfig, developerAppKey: e.target.value } as any})}
+                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 font-mono text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button 
+                  onClick={handleSaveConfig}
+                  className="mt-4 px-6 py-3 bg-brand-red text-white text-[10px] uppercase font-black tracking-widest rounded-xl hover:bg-brand-red-dark transition-colors flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  Salvar Pagamentos
                 </button>
               </div>
             </div>

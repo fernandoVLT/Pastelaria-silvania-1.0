@@ -44,6 +44,8 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   const [isCreating, setIsCreating] = useState(false);
   const [wpUrl, setWpUrl] = useState('');
   const [paymentLink, setPaymentLink] = useState('');
+  const [bbBrcode, setBbBrcode] = useState('');
+  const [bbTxid, setBbTxid] = useState('');
 
   const deliveryFee = orderType === 'Delivery' ? (config.deliveryFee || 3.00) : 0;
   const finalTotal = itemsTotal + deliveryFee;
@@ -181,28 +183,52 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
 
       let abacateUrl = '';
       if (paymentMethod === 'Pix') {
-        try {
-          const abacateRes = await fetch('/api/abacatepay', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              amount: finalTotal,
-              customerName: name.trim(),
-              customerPhone: phone.trim(),
-              items: orderItems
-            })
-          });
-          const abacateData = await abacateRes.json();
-          if (abacateData?.data?.url) {
-            abacateUrl = abacateData.data.url;
+        if (config.bbPixConfig?.enabled) {
+          try {
+            const bbRes = await fetch('/api/bb-pix', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                amount: finalTotal,
+                txid: orderId.replace(/-/g, '').slice(0, 32),
+                bbPixConfig: config.bbPixConfig
+              })
+            });
+            const bbData = await bbRes.json();
+            if (bbData.brcode) {
+              setBbBrcode(bbData.brcode);
+              setBbTxid(bbData.txid || '');
+              wppMessage += `\n🔗 *Código PIX (Copia e Cola) Banco do Brasil:* \n${bbData.brcode}\n`;
+            } else if (bbData.error) {
+              console.error("BB Pix API error:", bbData.error);
+            }
+          } catch (err) {
+            console.error("Erro ao gerar BB Pix", err);
           }
-        } catch (err) {
-          console.error("Erro ao gerar AbacatePay", err);
+        } else {
+          try {
+            const abacateRes = await fetch('/api/abacatepay', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                amount: finalTotal,
+                customerName: name.trim(),
+                customerPhone: phone.trim(),
+                items: orderItems
+              })
+            });
+            const abacateData = await abacateRes.json();
+            if (abacateData?.data?.url) {
+              abacateUrl = abacateData.data.url;
+            }
+          } catch (err) {
+            console.error("Erro ao gerar AbacatePay", err);
+          }
         }
       }
 
       if (abacateUrl) {
-        wppMessage += `\n🔗 *Link para Pagamento (AbacatePay):* \n${abacateUrl}\n`;
+        wppMessage += `\n🔗 *Link para Pagamento:* \n${abacateUrl}\n`;
       }
 
       const wpNumber = config.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';
@@ -242,14 +268,31 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
             {config.orderSuccessMessage || 'Seu pedido foi registrado! Caso o WhatsApp não tenha aberto automaticamente, clique no botão abaixo.'}
           </p>
           <div className="flex flex-col gap-3 w-full">
-            {paymentLink && (
+            {bbBrcode && (
+              <div className="w-full bg-white border border-gray-200 rounded-xl p-4 flex flex-col items-center mb-2">
+                <p className="text-xs font-bold text-teal-600 uppercase tracking-widest mb-3">Pague com PIX (Banco do Brasil)</p>
+                <div className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm mb-3">
+                  <QRCodeSVG value={bbBrcode} size={150} level="M" includeMargin={true} />
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(bbBrcode);
+                    toast.success('Código PIX copiado!');
+                  }}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center gap-2"
+                >
+                  <Copy className="w-3 h-3" /> Copiar Código Pix
+                </button>
+              </div>
+            )}
+            {paymentLink && !bbBrcode && (
               <a 
                 href={paymentLink} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="w-full bg-teal-500 hover:bg-teal-600 text-white font-black h-12 rounded-xl transition-all uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2"
               >
-                Pagar com PIX Agora (AbacatePay)
+                Pagar com PIX Agora
               </a>
             )}
             <a 
@@ -441,8 +484,10 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                       <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center mb-3">
                          <QrCode className="w-6 h-6" />
                       </div>
-                      <p className="text-xs text-gray-700 font-bold mb-1">Pagamento Seguro via PIX (AbacatePay)</p>
-                      <p className="text-[10px] text-gray-500 font-medium">Após confirmar, você receberá um link para pagar e seu pedido será enviado pelo WhatsApp.</p>
+                      <p className="text-xs text-gray-700 font-bold mb-1">
+                        Pagamento Seguro via PIX {config.bbPixConfig?.enabled ? '(Banco do Brasil)' : '(AbacatePay)'}
+                      </p>
+                      <p className="text-[10px] text-gray-500 font-medium">Após confirmar, você receberá um {config.bbPixConfig?.enabled ? 'QR Code automático' : 'link'} para pagar e seu pedido será enviado pelo WhatsApp.</p>
                       <div className="mt-3 py-2 px-4 bg-teal-50 border border-teal-100 rounded-xl inline-flex hidden">
                         {/* We use hidden here to keep the generatePixCode valid if it's imported, preventing TS errors */}
                         {generatePixCode('', '', '', 0)}

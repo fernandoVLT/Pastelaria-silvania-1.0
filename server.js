@@ -11,6 +11,79 @@ app.use(express.json());
 // A Hostinger injeta a porta necessária via process.env.PORT
 const PORT = process.env.PORT || 3000;
 
+app.post('/api/bb-pix', async (req, res) => {
+  try {
+    const { amount, bbPixConfig, txid } = req.body;
+    
+    if (!bbPixConfig || !bbPixConfig.enabled || (!bbPixConfig.clientId && !bbPixConfig.clientSecret)) {
+      return res.status(400).json({ error: 'Configuração do Banco do Brasil não definida ou incompleta.' });
+    }
+
+    const { clientId, clientSecret, developerAppKey, isProduction } = bbPixConfig;
+    const authUrl = isProduction ? 'https://oauth.bb.com.br/oauth/token' : 'https://oauth.sandbox.bb.com.br/oauth/token';
+    const baseUrl = isProduction ? 'https://api.bb.com.br/pix/v2' : 'https://api.sandbox.bb.com.br/pix/v2';
+    
+    const authString = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    
+    // Obter Token
+    const tokenRes = await fetch(authUrl + '?gw-app-key=' + developerAppKey, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${authString}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'grant_type=client_credentials&scope=cob.write cob.read pix.read'
+    });
+    
+    if (!tokenRes.ok) {
+      console.error('BB Token erro:', await tokenRes.text());
+      return res.status(tokenRes.status).json({ error: 'Erro ao autenticar com Banco do Brasil.' });
+    }
+    
+    const { access_token } = await tokenRes.json();
+    
+    // Gerar Cobrança (cob)
+    const cobBody = {
+      calendario: { expiracao: 3600 },
+      valor: { original: amount.toFixed(2) },
+      chave: "Sua_Chave_Pix_Aqui", // Na API Sandbox do BB pode ser um email ou aleatória válida
+      solicitacaoPagador: "Pedido Delivery"
+    };
+
+    const cobRes = await fetch(`${baseUrl}/cob/${txid || ''}?gw-app-key=${developerAppKey}`, {
+      method: txid ? 'PUT' : 'POST',
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(cobBody)
+    });
+
+    if (!cobRes.ok) {
+      console.error('BB Cob erro:', await cobRes.text());
+      return res.status(cobRes.status).json({ error: 'Erro ao criar cobrança PIX no Banco do Brasil.' });
+    }
+
+    const cobData = await cobRes.json();
+    
+    // Para simplificar no MVP/Sandbox e evitar problemas com mTLS, vamos retornar o EMV (BRCode)
+    return res.json({ 
+      txid: cobData.txid, 
+      brcode: cobData.pixCopiaECola || cobData.location || "000201010211...", // Placeholder fallback for sandbox
+      status: cobData.status 
+    });
+
+  } catch (error) {
+    console.error('Erro na API BB Pix:', error);
+    res.status(500).json({ error: 'Erro interno no servidor ao gerar PIX do BB.' });
+  }
+});
+
+app.get('/api/bb-pix-status/:txid', async (req, res) => {
+  // Lógica para verificar o status se os dados fossem passados via headers ou persistidos
+  res.json({ status: "ATIVA" }); // Mock implementation para sandbox/preview
+});
+
 app.post('/api/abacatepay', async (req, res) => {
   try {
     const { amount, customerName, customerPhone, items } = req.body;

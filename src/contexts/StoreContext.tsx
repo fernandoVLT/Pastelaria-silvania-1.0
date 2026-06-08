@@ -50,6 +50,13 @@ interface StoreConfig {
   pixReceiverName?: string;
   pixReceiverCity?: string;
   deliveryFee?: number;
+  bbPixConfig?: {
+    enabled: boolean;
+    clientId: string;
+    clientSecret: string;
+    developerAppKey: string;
+    isProduction: boolean;
+  };
   deliveryTimeType?: 'fixed' | 'range';
   fixedDeliveryTime?: number;
   minDeliveryTime?: number;
@@ -122,6 +129,13 @@ const DEFAULT_CONFIG: StoreConfig = {
   facebookUrl: '',
   isOpen: true,
   deliveryFee: 3.00,
+  bbPixConfig: {
+    enabled: false,
+    clientId: '',
+    clientSecret: '',
+    developerAppKey: '',
+    isProduction: false,
+  },
   deliveryTimeType: 'range',
   fixedDeliveryTime: 40,
   minDeliveryTime: 30,
