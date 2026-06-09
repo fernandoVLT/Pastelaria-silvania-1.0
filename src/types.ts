@@ -18,6 +18,7 @@ export interface Product {
   reviews?: Review[];
   salesCount?: number;
   isBestSeller?: boolean;
+  stock?: number;
 }
 
 export interface CartItem {
@@ -62,5 +63,6 @@ export interface Order {
   scheduledDate?: string;
   scheduledTime?: string;
   cancellationReason?: string;
+  hasBeenPrinted?: boolean;
   statusLog?: { status: OrderStatus; timestamp: number; user?: string }[];
 }

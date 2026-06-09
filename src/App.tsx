@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Banner } from './components/Banner';
 import { CartSidebar } from './components/CartSidebar';
 import { CheckoutModal } from './components/CheckoutModal';
@@ -13,8 +13,9 @@ import { CustomerOrdersModal } from './components/CustomerOrdersModal';
 import { useStore } from './contexts/StoreContext';
 import { CartItem, Category, Product } from './types';
 import { cn } from './utils/cn';
-import { MessageSquare } from 'lucide-react';
-import { Toaster, toast } from 'react-hot-toast';
+import { MessageSquare, ArrowUpDown } from 'lucide-react';
+import { NotificationContainer, notify } from './components/NotificationOverlay';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
   const { products, config, computedIsOpen, favorites, notifyAdminCartStarted } = useStore();
@@ -28,6 +29,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState<Category>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFavorites, setShowFavorites] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'none' | 'asc' | 'desc'>('none');
 
   useEffect(() => {
     if (config.categories.length > 0 && !activeCategory) {
@@ -37,7 +39,7 @@ export default function App() {
 
   const handleAddToCart = (item: Omit<CartItem, 'id'>) => {
     if (!computedIsOpen) {
-      toast.error("A loja está fechada no momento. Os pedidos estão suspensos.");
+      notify.error("A loja está fechada no momento. Os pedidos estão suspensos.");
       return;
     }
     setCartItems(prev => {
@@ -51,18 +53,67 @@ export default function App() {
     setSelectedProduct(null);
   };
 
+  const handleUpdateProductQuantity = (product: Product, change: number) => {
+    if (!computedIsOpen) {
+      notify.error("A loja está fechada no momento. Os pedidos estão suspensos.");
+      return;
+    }
+    setCartItems(prev => {
+      if (change > 0) {
+        if (product.stock !== undefined && product.stock <= 0) {
+           notify.error("Produto esgotado.");
+           return prev;
+        }
+        
+        const basicItemIndex = prev.findIndex(item => item.product.id === product.id && !item.observation);
+        if (basicItemIndex >= 0) {
+          const newCart = [...prev];
+          newCart[basicItemIndex].quantity += change;
+          return newCart;
+        } else {
+           if (prev.length === 0 && config.notifyOnCartStart) {
+             notifyAdminCartStarted?.().catch(console.error);
+           }
+           return [...prev, { id: crypto.randomUUID(), product, quantity: change }];
+        }
+      } else {
+        const existingItems = prev.filter(item => item.product.id === product.id);
+        if (existingItems.length === 0) return prev;
+        
+        const newCart = [...prev];
+        let indexToDecrease = -1;
+        for (let i = newCart.length - 1; i >= 0; i--) {
+          if (newCart[i].product.id === product.id) {
+            indexToDecrease = i;
+            break;
+          }
+        }
+        
+        if (indexToDecrease >= 0) {
+          if (newCart[indexToDecrease].quantity > 1) {
+            newCart[indexToDecrease].quantity -= 1;
+            return newCart;
+          } else {
+            newCart.splice(indexToDecrease, 1);
+            return newCart;
+          }
+        }
+        return prev;
+      }
+    });
+  };
+
   const handleRemoveFromCart = (id: string) => {
     setCartItems(prev => prev.filter(item => item.id !== id));
   };
 
   const handleReorder = (historicItems: any[]) => {
     if (!computedIsOpen) {
-      toast.error("A loja está fechada no momento. Os pedidos estão suspensos.");
+      notify.error("A loja está fechada no momento. Os pedidos estão suspensos.");
       return;
     }
     
     const newCartItems: CartItem[] = historicItems.map(item => {
-      // Find the corresponding product in the latest store context
       const product = products.find(p => p.name === item.productName) || {
         id: crypto.randomUUID(),
         name: item.productName,
@@ -105,9 +156,19 @@ export default function App() {
     return p.category === activeCategory;
   });
 
+  const sortedActiveProducts = useMemo(() => {
+    const list = [...activeProducts];
+    if (sortOrder === 'asc') return list.sort((a, b) => a.price - b.price);
+    if (sortOrder === 'desc') return list.sort((a, b) => b.price - a.price);
+    return list;
+  }, [activeProducts, sortOrder]);
+
+  const getQuantityInCart = (productId: string) => {
+    return cartItems.filter(item => item.product.id === productId).reduce((sum, item) => sum + item.quantity, 0);
+  };
+
   const bestSellers = [...products]
     .sort((a, b) => {
-      // Prioritize manual override
       if (a.isBestSeller && !b.isBestSeller) return -1;
       if (!a.isBestSeller && b.isBestSeller) return 1;
       return (b.salesCount || 0) - (a.salesCount || 0);
@@ -124,34 +185,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen pb-24 md:pb-8 flex flex-col bg-gray-50 font-sans">
-      <Toaster 
-        position="top-center" 
-        toastOptions={{ 
-          duration: 4000, 
-          style: { 
-            background: 'white', 
-            color: '#111827', 
-            fontSize: '14px', 
-            fontWeight: '600',
-            borderRadius: '16px',
-            padding: '16px 20px',
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-            border: '1px solid #F3F4F6'
-          },
-          success: {
-            iconTheme: {
-              primary: '#ef4444', // brand-red
-              secondary: 'white',
-            },
-          },
-          error: {
-            iconTheme: {
-              primary: '#111827',
-              secondary: 'white',
-            },
-          },
-        }} 
-      />
+      <NotificationContainer />
       <HeroSplash />
       {!computedIsOpen && (
         <div className="bg-red-600 text-white text-center py-4 px-4 text-xs sm:text-sm font-black tracking-widest uppercase relative z-[60] shadow-md border-b border-red-700 flex items-center justify-center gap-2">
@@ -171,7 +205,7 @@ export default function App() {
       <Banner />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 w-full mt-12 flex flex-col md:flex-row gap-12">
-        <div className="flex-1">
+        <div className="flex-1 overflow-visible">
           {/* Best Sellers Section */}
           {!showFavorites && !searchQuery && bestSellers.length > 0 && (
             <div className="mb-12">
@@ -180,13 +214,22 @@ export default function App() {
                 Mais Vendidos
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-                {bestSellers.map(product => (
-                  <div key={product.id} className="flex flex-col h-full">
+                {bestSellers.map((product, index) => (
+                  <motion.div 
+                    key={`bs-${product.id}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    className="flex flex-col h-full"
+                  >
                     <ProductCard 
                       product={product} 
                       onClick={setSelectedProduct}
+                      quantityInCart={getQuantityInCart(product.id)}
+                      onIncrement={() => handleUpdateProductQuantity(product, 1)}
+                      onDecrement={() => handleUpdateProductQuantity(product, -1)}
                     />
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
@@ -213,21 +256,51 @@ export default function App() {
           )}
 
           <div className="mb-8">
-            <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tight mb-8 text-gray-900 flex items-center gap-4">
-              <span className="w-8 h-px bg-gray-300 hidden sm:block"></span>
-              {searchQuery ? 'Resultados da busca' : showFavorites ? 'Meus Favoritos' : activeCategory}
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+              <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tight text-gray-900 flex items-center gap-4">
+                <span className="w-8 h-px bg-gray-300 hidden sm:block"></span>
+                {searchQuery ? 'Resultados da busca' : showFavorites ? 'Meus Favoritos' : activeCategory}
+              </h2>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold hidden sm:inline-block">Ordenar:</span>
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as 'none' | 'asc' | 'desc')}
+                  className="bg-white border border-gray-200 text-gray-700 text-xs font-bold uppercase tracking-widest rounded-xl px-4 py-2 hover:border-gray-300 focus:outline-none focus:ring-1 focus:ring-brand-red cursor-pointer shadow-sm disabled:opacity-50"
+                  disabled={sortedActiveProducts.length === 0}
+                >
+                  <option value="none">Padrão</option>
+                  <option value="asc">Menor Preço</option>
+                  <option value="desc">Maior Preço</option>
+                </select>
+              </div>
+            </div>
+
             {/* Product Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-              {activeProducts.map(product => (
-                <div key={product.id} className="flex flex-col h-full">
-                  <ProductCard 
-                    product={product} 
-                    onClick={setSelectedProduct}
-                  />
-                </div>
-              ))}
-              {activeProducts.length === 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 relative">
+              <AnimatePresence mode="popLayout">
+                {sortedActiveProducts.map((product, index) => (
+                  <motion.div 
+                    layout
+                    key={product.id}
+                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.25, delay: index * 0.05 }}
+                    className="flex flex-col h-full"
+                  >
+                    <ProductCard 
+                      product={product} 
+                      onClick={setSelectedProduct}
+                      quantityInCart={getQuantityInCart(product.id)}
+                      onIncrement={() => handleUpdateProductQuantity(product, 1)}
+                      onDecrement={() => handleUpdateProductQuantity(product, -1)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              {sortedActiveProducts.length === 0 && (
                 <div className="col-span-full py-12 text-center text-gray-500 font-medium col-[1/-1]">
                   {showFavorites ? 'Você ainda não salvou nenhum produto como favorito.' : 'Nenhum produto encontrado.'}
                 </div>

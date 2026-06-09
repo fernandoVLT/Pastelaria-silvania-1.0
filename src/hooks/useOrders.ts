@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Order, OrderStatus } from '../types';
-import toast from 'react-hot-toast';
+import { notify } from '../components/NotificationOverlay';
 
 export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -17,10 +17,7 @@ export function useOrders() {
         snapshot.docChanges().forEach((change) => {
           if (change.type === 'added') {
             const data = change.doc.data() as Order;
-            toast.success(`Novo pedido de ${data.customerName}! (${data.orderType})`, {
-              duration: 5000,
-              icon: '🛍️',
-            });
+            notify.success(`Novo pedido de ${data.customerName}! (${data.orderType})`);
           }
         });
       }
@@ -58,5 +55,14 @@ export function useOrders() {
     }
   };
 
-  return { orders, loading, updateOrderStatus };
+  const markOrderAsPrinted = async (orderId: string) => {
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, { hasBeenPrinted: true });
+    } catch (error) {
+      console.error('Error marking order as printed:', error);
+    }
+  };
+
+  return { orders, loading, updateOrderStatus, markOrderAsPrinted };
 }

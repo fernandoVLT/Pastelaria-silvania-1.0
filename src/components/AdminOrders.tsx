@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useOrders } from '../hooks/useOrders';
 import { Order, OrderStatus } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
-import { Printer, MapPin, Phone, MessageSquare, Clock, Calendar, Store, Check, Bike, Timer as TimerIcon } from 'lucide-react';
+import { Printer, MapPin, Phone, MessageSquare, Clock, Calendar, Store, Check, Bike, Timer as TimerIcon, X } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { useReactToPrint } from 'react-to-print';
 import { printDirectToUsb } from '../utils/printUsb';
 import { ReceiptPrint } from './ReceiptPrint';
-import toast from 'react-hot-toast';
+import { notify } from './NotificationOverlay';
 
 function ElapsedTimer({ startTime }: { startTime: number }) {
   const [elapsed, setElapsed] = useState(Date.now() - startTime);
@@ -41,8 +41,8 @@ const STATUS_INDICATOR = {
 };
 
 export function AdminOrders() {
-  const { orders, loading, updateOrderStatus } = useOrders();
-  const { config, updateConfig } = useStore();
+  const { orders, loading, updateOrderStatus, markOrderAsPrinted } = useOrders();
+  const { config, setConfig } = useStore();
 
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState('');
@@ -56,21 +56,45 @@ export function AdminOrders() {
   const [historyFilterPayment, setHistoryFilterPayment] = useState<string>('');
   const [historySearch, setHistorySearch] = useState<string>('');
 
-  const printedOrdersRef = useRef<Set<string>>(new Set());
+  const printedOrdersRef = useRef<Set<string>>(
+    (() => {
+      try {
+        const stored = localStorage.getItem('printedOrders');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            return new Set<string>(parsed);
+          }
+        }
+      } catch (e) {
+        console.error('Error loading printed orders:', e);
+      }
+      return new Set<string>();
+    })()
+  );
   
   const printRef = useRef<HTMLDivElement>(null);
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
   const [printQueue, setPrintQueue] = useState<Order[]>([]);
+
+  const persistPrintedOrders = () => {
+    try {
+      const arr = Array.from(printedOrdersRef.current).slice(-2000); // keep max 2000
+      localStorage.setItem('printedOrders', JSON.stringify(arr));
+    } catch (e) {
+      console.error('Error saving printed orders:', e);
+    }
+  };
 
   const executePrint = useReactToPrint({ 
     contentRef: printRef,
     onAfterPrint: () => {
       setPrintingOrder(null);
       setPrintQueue(prev => prev.slice(1));
-      toast.success('Impressão concluída.');
+      notify.success('Impressão concluída.');
     },
     onPrintError: () => {
-      toast.error('Erro na impressão. Tente novamente.');
+      notify.error('Erro na impressão. Tente novamente.');
       setPrintingOrder(null);
       setPrintQueue(prev => prev.slice(1));
     }
@@ -94,9 +118,12 @@ export function AdminOrders() {
     const autoPrintDelivery = config.printConfig?.autoPrintDelivery ?? true;
     const autoPrintPickup = config.printConfig?.autoPrintPickup ?? true;
     
+    const nowMs = Date.now();
+    const oneHourMs = 1 * 60 * 60 * 1000;
+
     // Check for new orders in 'Feito' status that haven't been printed yet
     const unprintedNewOrders = orders.filter(
-      (o) => o.status === 'Feito' && !printedOrdersRef.current.has(o.id!)
+      (o) => o.status === 'Feito' && !o.hasBeenPrinted && !printedOrdersRef.current.has(o.id!) && (nowMs - o.createdAt < oneHourMs)
     );
     
     if (unprintedNewOrders.length > 0) {
@@ -104,6 +131,7 @@ export function AdminOrders() {
         unprintedNewOrders.forEach((order) => {
           if (!printedOrdersRef.current.has(order.id!)) {
             printedOrdersRef.current.add(order.id!);
+            markOrderAsPrinted(order.id!); // Sync to Firebase so other devices know it was queued
             if (autoPrintEnabled) {
               const isDelivery = order.orderType === 'Delivery';
               if ((isDelivery && autoPrintDelivery) || (!isDelivery && autoPrintPickup)) {
@@ -112,17 +140,24 @@ export function AdminOrders() {
             }
           }
         });
+        persistPrintedOrders();
       }, 500);
     }
     
-    // Also add to set if they are already past 'Feito' so we don't accidentally print them later
+    let updatedSet = false;
+    // Also add to set if they are already past 'Feito' or very old, or already printed elsewhere, so we don't accidentally print them later
     orders.forEach(o => {
-       if (o.status !== 'Feito' && !printedOrdersRef.current.has(o.id!)) {
+       if ((o.hasBeenPrinted || o.status !== 'Feito' || (nowMs - o.createdAt >= oneHourMs)) && !printedOrdersRef.current.has(o.id!)) {
           printedOrdersRef.current.add(o.id!);
+          updatedSet = true;
        }
     });
 
-  }, [orders, loading, config.printConfig?.autoPrint, config.printConfig?.autoPrintDelivery, config.printConfig?.autoPrintPickup]);
+    if (updatedSet) {
+      persistPrintedOrders();
+    }
+
+  }, [orders, loading, config.printConfig?.autoPrint, config.printConfig?.autoPrintDelivery, config.printConfig?.autoPrintPickup, markOrderAsPrinted]);
 
   const filteredOrders = orders.filter(order => {
     const orderDate = new Date(order.createdAt);
@@ -226,10 +261,10 @@ export function AdminOrders() {
               text: decodeURIComponent(text)
             })
           });
-          toast.success('WhatsApp enviado via API (Silencioso).');
+          notify.success('WhatsApp enviado via API (Silencioso).');
           return; // Skip normal window open
         } catch (err) {
-          toast.error('Ocorreu um erro ao enviar WPP silencioso');
+          notify.error('Ocorreu um erro ao enviar WPP silencioso');
         }
       }
 
@@ -262,7 +297,7 @@ export function AdminOrders() {
         await updateOrderStatus(order.id!, newStatus);
       }
     } catch (e) {
-      toast.error('Erro ao atualizar status do pedido');
+      notify.error('Erro ao atualizar status do pedido');
     }
   };
 
@@ -273,14 +308,14 @@ export function AdminOrders() {
   };
 
   const handlePrint = async (order: Order) => {
-    toast.success('Enviando para impressora...');
+    notify.success('Enviando para impressora...');
     
     // Check if USB printing is enabled
     if (config.printConfig?.usbPrinter) {
       try {
         const success = await printDirectToUsb(order);
         if (success) {
-          toast.success('Impresso via USB com sucesso!');
+          notify.success('Impresso via USB com sucesso!');
           return;
         }
       } catch (err) {
@@ -291,6 +326,10 @@ export function AdminOrders() {
     // Check if the order is already in the queue to prevent duplicates
     if (!printQueue.some(o => o.id === order.id)) {
       setPrintQueue(prev => [...prev, order]);
+    }
+    
+    if (order.id && !order.hasBeenPrinted) {
+      markOrderAsPrinted(order.id);
     }
   };
 
@@ -426,7 +465,7 @@ export function AdminOrders() {
                     onClick={(e) => {
                       e.stopPropagation();
                       setPrintQueue(prev => [...prev, order]);
-                      toast.success('Adicionado à fila de impressão');
+                      notify.success('Adicionado à fila de impressão');
                     }}
                     className="p-2 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
                   >
@@ -458,10 +497,10 @@ export function AdminOrders() {
                               text: decodeURIComponent(text)
                             })
                           });
-                          toast.success('Mensagem enviada (API Silenciosa)');
+                          notify.success('Mensagem enviada (API Silenciosa)');
                           return;
                         } catch (err) {
-                          toast.error('Erro na API.');
+                          notify.error('Erro na API.');
                         }
                       }
                       
@@ -593,14 +632,15 @@ export function AdminOrders() {
             <button
                onClick={async () => {
                  const current = !!config.whatsappApiConfig?.enabled;
-                 await updateConfig({
+                 await setConfig({
+                   ...config,
                    whatsappApiConfig: {
                      ...config.whatsappApiConfig,
                      enabled: !current
                    }
                  });
-                 if (!current) toast.success("WhatsApp Conectado (Auto Ativado)");
-                 else toast.error("WhatsApp Desconectado (Auto Desativado)", { icon: '🚫' });
+                 if (!current) notify.success("WhatsApp Conectado (Auto Ativado)");
+                 else notify.error("WhatsApp Desconectado (Auto Desativado)");
                }}
                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-widest uppercase transition-colors shadow-sm border ${
                  config.whatsappApiConfig?.enabled 
@@ -709,16 +749,42 @@ export function AdminOrders() {
               <p className="text-sm text-gray-500 font-medium mt-1">Pedidos aguardando para serem impressos.</p>
             </div>
             
-            <button
-               onClick={() => {
-                 setPrintQueue([]);
-                 setPrintingOrder(null);
-               }}
-               className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-xs font-bold tracking-widest uppercase transition-colors"
-               disabled={printQueue.length === 0}
-            >
-               Limpar Fila
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setConfig({
+                     ...config,
+                     printConfig: {
+                        ...(config.printConfig || { autoPrintDelivery: true, autoPrintPickup: true }),
+                        autoPrint: !(config.printConfig?.autoPrint ?? true)
+                     }
+                  });
+                }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                  (config.printConfig?.autoPrint ?? true) 
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                title="Pausar ou ativar impressão automática para novos pedidos Finalizados"
+              >
+                <Printer className="w-4 h-4" />
+                Auto: {(config.printConfig?.autoPrint ?? true) ? 'ON' : 'OFF'}
+              </button>
+              
+              <button
+                 onClick={() => {
+                   printQueue.forEach(o => o.id && printedOrdersRef.current.add(o.id));
+                   persistPrintedOrders();
+                   setPrintQueue([]);
+                   setPrintingOrder(null);
+                   notify.success('Fila de impressão limpa!');
+                 }}
+                 className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-xs font-bold tracking-widest uppercase transition-colors"
+                 disabled={printQueue.length === 0}
+              >
+                 Limpar Fila
+              </button>
+            </div>
           </div>
 
           {printQueue.length === 0 && !printingOrder ? (
@@ -735,6 +801,7 @@ export function AdminOrders() {
                   <div className="flex flex-col">
                     <span className="text-[10px] font-bold tracking-widest uppercase text-blue-500 mb-1">Imprimindo Agora</span>
                     <span className="font-bold text-gray-900">{printingOrder.customerName} - Pedido #{printingOrder.id?.substring(0, 6) || 'N/A'}</span>
+                    <span className="text-[10px] text-gray-500 mt-0.5">{new Date(printingOrder.createdAt).toLocaleString()}</span>
                   </div>
                   <Printer className="w-6 h-6 text-blue-500 animate-bounce" />
                 </div>
@@ -746,12 +813,25 @@ export function AdminOrders() {
                        Posição #{printingOrder ? i + 2 : i + 1}
                     </span>
                     <span className="font-bold text-gray-900">{order.customerName} - Pedido #{order.id?.substring(0, 6) || 'N/A'}</span>
+                    <span className="text-[10px] text-gray-500 mt-0.5">{new Date(order.createdAt).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-bold text-gray-500 bg-white px-3 py-1.5 rounded-lg border border-gray-200">
                       {formatCurrency(order.total)}
                     </span>
-                    <span className="text-[10px] font-bold text-gray-400 bg-gray-200 px-3 py-1.5 rounded-lg uppercase tracking-widest">
+                    <button 
+                      onClick={() => {
+                         setPrintQueue(prev => prev.filter(o => o.id !== order.id));
+                         printedOrdersRef.current.add(order.id!);
+                         persistPrintedOrders();
+                         notify.success('Removido da fila de impressão');
+                      }}
+                      className="p-1.5 bg-red-50 text-red-500 hover:bg-red-100 rounded-lg transition-colors cursor-pointer ml-2 border border-red-100"
+                      title="Cortar Impressão / Remover da Fila"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <span className="text-[10px] font-bold text-gray-400 bg-gray-200 px-3 py-1.5 rounded-lg uppercase tracking-widest hidden sm:block">
                       Aguardando
                     </span>
                   </div>

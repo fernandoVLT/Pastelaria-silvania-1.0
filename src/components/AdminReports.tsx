@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useOrders } from '../hooks/useOrders';
 import { formatCurrency } from '../utils/formatCurrency';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar } from 'recharts';
 
 export function AdminReports() {
   const { orders } = useOrders();
@@ -24,6 +24,27 @@ export function AdminReports() {
       data.push({ name: dateStr, total: dayTotal });
     }
     return data;
+  }, [completedOrders]);
+
+  const last7DaysCategoriesData = useMemo(() => {
+    const categoryData: Record<string, number> = {};
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    completedOrders.forEach(order => {
+      const orderDate = new Date(order.createdAt);
+      if (orderDate >= sevenDaysAgo) {
+        order.items.forEach(item => {
+          const cat = item.product?.category || 'Outros';
+          if (!categoryData[cat]) categoryData[cat] = 0;
+          categoryData[cat] += item.quantity; // Vendas (quantidade vendida) ou pode ser o total em R$. O usuário quer "vendas por categoria", geralmente quantidade.
+        });
+      }
+    });
+
+    return Object.entries(categoryData)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
   }, [completedOrders]);
 
   const reportData = useMemo(() => {
@@ -133,7 +154,29 @@ export function AdminReports() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm mt-4">
+        <h4 className="font-bold text-sm uppercase tracking-widest text-gray-700 mb-4">Itens Vendidos por Categoria (Últimos 7 dias)</h4>
+        <div className="h-64 w-full">
+          {last7DaysCategoriesData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={last7DaysCategoriesData} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 40 }}>
+                <CartesianGrid stroke="#f3f4f6" strokeDasharray="5 5" horizontal={false} />
+                <XAxis type="number" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis dataKey="name" type="category" stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} width={100} />
+                <Tooltip 
+                   formatter={(value: number) => [`${value} itens`, 'Vendas']}
+                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}
+                />
+                <Bar dataKey="value" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-sm text-gray-400">Nenhum dado encontrado para os últimos 7 dias.</div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
         <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
           <h4 className="font-bold text-sm uppercase tracking-widest text-gray-700 mb-4">Vendas por Categoria</h4>
           <div className="h-64 w-full">

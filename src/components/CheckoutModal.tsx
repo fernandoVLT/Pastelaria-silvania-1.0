@@ -1,7 +1,8 @@
 import { X, QrCode, CreditCard, Wallet, Utensils, CheckCircle, ExternalLink, MapPin, Store, Copy, Banknote, AlertCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import toast from 'react-hot-toast';
+import { motion } from 'motion/react';
+import { notify } from './NotificationOverlay';
 import { useStore } from '../contexts/StoreContext';
 import { CartItem, PaymentMethod, OrderType } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
@@ -31,7 +32,7 @@ const ALLOWED_NEIGHBORHOODS = [
 ];
 
 export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: Props) {
-  const { config, recordSale, createOrder } = useStore();
+  const { config, recordSale, createOrder, updateOrderStatus } = useStore();
   
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -46,48 +47,65 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   const [paymentLink, setPaymentLink] = useState('');
   const [bbBrcode, setBbBrcode] = useState('');
   const [bbTxid, setBbTxid] = useState('');
+  const [isPollingPix, setIsPollingPix] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState('');
 
   const deliveryFee = orderType === 'Delivery' ? (config.deliveryFee || 3.00) : 0;
   const finalTotal = itemsTotal + deliveryFee;
 
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isOrderSent && bbTxid && !paymentConfirmed) {
+      setIsPollingPix(true);
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch('/api/bb-pix-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              txid: bbTxid,
+              bbPixConfig: config.bbPixConfig
+            })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.status === 'CONCLUIDA') {
+              setPaymentConfirmed(true);
+              setIsPollingPix(false);
+              clearInterval(interval);
+              notify.success('Pagamento PIX confirmado com sucesso!');
+              // Atualizar status no banco
+              if (createdOrderId) {
+                await updateOrderStatus(createdOrderId, 'Feito');
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Erro polling PIX:", err);
+        }
+      }, 5000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isOrderSent, bbTxid, paymentConfirmed, createdOrderId, config.bbPixConfig, updateOrderStatus]);
+
   const handleSubmitOrder = async () => {
     const minOrder = config.minOrderValue || 20;
     if (itemsTotal < minOrder) {
-      toast.custom(
-        (t) => (
-          <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-sm w-full bg-white shadow-2xl rounded-2xl pointer-events-auto flex p-5 border border-brand-red/20`}>
-            <div className="flex-shrink-0 pt-0.5">
-              <AlertCircle className="h-10 w-10 text-brand-red" />
-            </div>
-            <div className="ml-4 flex-1">
-              <p className="text-sm font-black text-gray-900 uppercase tracking-widest">Pedido Mínimo</p>
-              <p className="mt-1 text-sm text-gray-600 font-medium leading-relaxed">
-                Para finalizar, adicione mais produtos. O valor mínimo é de <span className="font-bold text-brand-red">{formatCurrency(minOrder)}</span> em itens.
-              </p>
-            </div>
-          </div>
-        ),
-        { duration: 5000, position: 'top-center' }
-      );
+      notify.error(`Adicione mais produtos. O valor mínimo é de ${formatCurrency(minOrder)} em itens.`);
       return;
     }
 
     if (!name.trim() || !phone.trim() || !paymentMethod) {
-      toast.error('Preencha seu nome, WhatsApp e a forma de pagamento.', {
-        style: {
-          borderRadius: '12px',
-          background: '#333',
-          color: '#fff',
-          fontSize: '14px',
-          fontWeight: 'bold',
-        }
-      });
+      notify.error('Preencha seu nome, WhatsApp e a forma de pagamento.');
       return;
     }
 
     if (orderType === 'Delivery') {
       if (!street.trim() || !addressNumber.trim()) {
-        toast.error('Preencha a rua e o número para entrega.');
+        notify.error('Preencha a rua e o número para entrega.');
         return;
       }
     }
@@ -132,6 +150,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       }
 
       const orderId = await createOrder(orderData);
+      setCreatedOrderId(orderId);
 
       recordSale(items.map(i => ({ productId: i.product.id, quantity: i.quantity })));
       
@@ -244,8 +263,9 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       }
       
       setIsOrderSent(true);
+      notify.success('Pedido enviado com sucesso!');
     } catch (e) {
-      toast.error('Houve um erro ao enviar seu pedido. Tente novamente.');
+      notify.error('Houve um erro ao enviar seu pedido. Tente novamente.');
     } finally {
       setIsCreating(false);
     }
@@ -256,13 +276,24 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
     onClose();
   };
 
+// ... removed nested import
   if (isOrderSent) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-        <div className="bg-white border flex flex-col items-center border-gray-100 rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center animate-in zoom-in-95 duration-300">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 text-green-500">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          className="bg-white border flex flex-col items-center border-gray-100 rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center"
+        >
+          <motion.div 
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+            className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 text-green-500"
+          >
             <CheckCircle className="w-10 h-10" />
-          </div>
+          </motion.div>
           <h2 className="font-black text-2xl tracking-tight text-gray-900 mb-2">Pedido Enviado!</h2>
           <p className="text-gray-500 text-sm mb-8 leading-relaxed whitespace-pre-line">
             {config.orderSuccessMessage || 'Seu pedido foi registrado! Caso o WhatsApp não tenha aberto automaticamente, clique no botão abaixo.'}
@@ -270,19 +301,42 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
           <div className="flex flex-col gap-3 w-full">
             {bbBrcode && (
               <div className="w-full bg-white border border-gray-200 rounded-xl p-4 flex flex-col items-center mb-2">
-                <p className="text-xs font-bold text-teal-600 uppercase tracking-widest mb-3">Pague com PIX (Banco do Brasil)</p>
-                <div className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm mb-3">
-                  <QRCodeSVG value={bbBrcode} size={150} level="M" includeMargin={true} />
-                </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(bbBrcode);
-                    toast.success('Código PIX copiado!');
-                  }}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center gap-2"
-                >
-                  <Copy className="w-3 h-3" /> Copiar Código Pix
-                </button>
+                <p className="text-xs font-bold text-teal-600 uppercase tracking-widest mb-3">
+                  {paymentConfirmed ? 'Pagamento Confirmado!' : 'Pague com PIX (Banco do Brasil)'}
+                </p>
+                {paymentConfirmed ? (
+                  <div className="w-24 h-24 bg-teal-100 rounded-full flex items-center justify-center text-teal-600 mb-4 scale-in">
+                    <CheckCircle className="w-12 h-12" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm mb-3 relative">
+                      <QRCodeSVG value={bbBrcode} size={150} level="M" includeMargin={true} />
+                      {isPollingPix && (
+                        <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex flex-col items-center justify-center rounded-2xl">
+                          <div className="w-6 h-6 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-[10px] font-bold text-teal-700 mt-2 bg-white px-2 py-1 rounded-full shadow-sm">Aguardando...</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 flex flex-col gap-3">
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center">Pix Copia e Cola</div>
+                      <div className="w-full bg-white border border-gray-200 rounded-lg p-3 text-xs font-mono text-gray-500 break-all select-all line-clamp-2">
+                        {bbBrcode}
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(bbBrcode);
+                          notify.success('Código PIX Copia e Cola copiado!');
+                        }}
+                        className="bg-teal-500 hover:bg-teal-600 text-white py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <Copy className="w-4 h-4" /> Copiar Código Pix
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
             {paymentLink && !bbBrcode && (
@@ -290,16 +344,64 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                 href={paymentLink} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="w-full bg-teal-500 hover:bg-teal-600 text-white font-black h-12 rounded-xl transition-all uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2"
+                className="w-full bg-teal-500 hover:bg-teal-600 text-white font-black h-12 rounded-xl transition-all uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2 shadow-md shadow-teal-500/20"
               >
                 Pagar com PIX Agora
               </a>
             )}
+            
+            {paymentMethod === 'Pix Manual' && (
+               <div className="w-full bg-white border border-gray-200 rounded-xl p-4 flex flex-col items-center mb-2">
+                 <p className="text-xs font-bold text-teal-600 uppercase tracking-widest mb-3">
+                   Pague com Pix Manual
+                 </p>
+                 <div className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm mb-4 relative">
+                   <QRCodeSVG 
+                     value={generatePixCode('5531996698807', 'SILVANIA BARRETO DE ALMEIDA', 'BELO HORIZONTE', finalTotal)} 
+                     size={150} level="M" includeMargin={true} 
+                   />
+                 </div>
+                 
+                 <div className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 flex flex-col gap-3">
+                    <div className="flex justify-between items-center bg-white border border-gray-200 rounded-lg p-3">
+                       <div className="flex flex-col text-left">
+                         <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Chave Celular</span>
+                         <span className="font-mono font-bold text-gray-700 mt-0.5 text-xs">+5531996698807</span>
+                       </div>
+                       <button
+                         onClick={() => {
+                            navigator.clipboard.writeText('5531996698807');
+                            notify.success('Chave copiada!');
+                         }}
+                         className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors"
+                         aria-label="Copiar Chave"
+                       >
+                         <Copy className="w-3 h-3" />
+                       </button>
+                    </div>
+
+                    <div className="flex flex-col gap-2 mt-1">
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center">Ou use o Copia e Cola</div>
+                      <button
+                        onClick={() => {
+                          const code = generatePixCode('5531996698807', 'SILVANIA BARRETO DE ALMEIDA', 'BELO HORIZONTE', finalTotal);
+                          navigator.clipboard.writeText(code);
+                          notify.success('Código PIX Copia e Cola copiado!');
+                        }}
+                        className="bg-teal-500 hover:bg-teal-600 text-white w-full py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <Copy className="w-4 h-4" /> Copiar PIX Copia e Cola
+                      </button>
+                    </div>
+                 </div>
+               </div>
+            )}
+            
             <a 
               href={wpUrl} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-black h-12 rounded-xl transition-all uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2"
+              className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-black h-12 rounded-xl transition-all uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2 shadow-md shadow-[#25D366]/20 mt-2"
             >
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
@@ -313,7 +415,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
               Voltar para a Loja
             </button>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -497,14 +599,48 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
 
                   {paymentMethod === 'Pix Manual' && (
                     <div className="flex flex-col items-center text-center w-full">
-                      <p className="text-xs text-brand-red mb-2 font-bold uppercase tracking-widest">Atenção!</p>
-                      <p className="text-[10px] text-gray-500 font-medium mb-4">O pedido só será aceito após a confirmação do comprovante Pix no número da loja.</p>
-                      <div className="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm mb-4">
-                        <QRCodeSVG value={generatePixCode('5531996698807', 'SILVANIA BARRETO DE ALMEIDA', 'BELO HORIZONTE', finalTotal)} size={160} level="M" includeMargin={true} />
+                      <p className="text-xs text-brand-red mb-2 font-bold uppercase tracking-widest flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Atenção!</p>
+                      <p className="text-[10px] text-gray-500 font-medium mb-4">O pedido só será aceito após o envio do comprovante Pix no número da loja.</p>
+                      
+                      <div className="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm mb-4 relative">
+                        <QRCodeSVG value={generatePixCode('5531996698807', 'SILVANIA BARRETO DE ALMEIDA', 'BELO HORIZONTE', finalTotal)} size={140} level="M" includeMargin={true} />
                       </div>
-                      <p className="text-[10px] font-bold text-gray-500 tracking-widest uppercase">
-                        Chave Celular: <span className="text-gray-900 select-all font-mono text-xs ml-1">+5531996698807</span>
-                      </p>
+                      
+                      <div className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 flex flex-col gap-3">
+                        <div className="flex justify-between items-center bg-white border border-gray-200 rounded-lg p-3">
+                           <div className="flex flex-col text-left">
+                             <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Chave Celular</span>
+                             <span className="font-mono font-bold text-gray-700 mt-0.5 text-xs">+5531996698807</span>
+                           </div>
+                           <button
+                             type="button"
+                             onClick={(e) => {
+                                e.preventDefault();
+                                navigator.clipboard.writeText('5531996698807');
+                                notify.success('Chave copiada!');
+                             }}
+                             className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors"
+                             aria-label="Copiar Chave"
+                           >
+                             <Copy className="w-3 h-3" />
+                           </button>
+                        </div>
+    
+                        <div className="flex flex-col gap-2 mt-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const code = generatePixCode('5531996698807', 'SILVANIA BARRETO DE ALMEIDA', 'BELO HORIZONTE', finalTotal);
+                              navigator.clipboard.writeText(code);
+                              notify.success('Código PIX Copia e Cola copiado!');
+                            }}
+                            className="bg-teal-500 hover:bg-teal-600 text-white w-full py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center justify-center gap-2 shadow-sm"
+                          >
+                            <Copy className="w-4 h-4" /> Copiar PIX Copia ou Cola
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                   

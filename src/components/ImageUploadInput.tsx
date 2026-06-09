@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Upload, Link as LinkIcon, Image as ImageIcon } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { notify } from './NotificationOverlay';
 import { compressImage } from '../utils/imageUtils';
 
 interface Props {
@@ -19,7 +19,7 @@ export function ImageUploadInput({ label, value, onChange, placeholder }: Props)
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast.error('Por favor, selecione uma imagem.');
+      notify.error('Por favor, selecione uma imagem.');
       return;
     }
 
@@ -27,10 +27,10 @@ export function ImageUploadInput({ label, value, onChange, placeholder }: Props)
       setIsUploading(true);
       const base64Image = await compressImage(file);
       onChange(base64Image);
-      toast.success('Imagem carregada com sucesso!');
+      notify.success('Imagem carregada com sucesso!');
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao processar imagem.');
+      notify.error('Erro ao processar imagem.');
     } finally {
       setIsUploading(false);
       // Reset input so the same file could be picked again if needed

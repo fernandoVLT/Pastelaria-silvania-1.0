@@ -1,6 +1,6 @@
 import { X, Plus, Edit2, Trash2, Save, Image as ImageIcon, BarChart3, Check, Store, Printer } from 'lucide-react';
 import React, { useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { notify } from './NotificationOverlay';
 import { useStore } from '../contexts/StoreContext';
 import { Product } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
@@ -21,7 +21,7 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
 
   const handleSaveConfig = () => {
     setConfig(formConfig);
-    toast.success('Configurações salvas com sucesso!');
+    notify.success('Configurações salvas com sucesso!');
     onClose();
   };
 
@@ -42,7 +42,7 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
     setEditingProduct(null);
     setIsAddingProduct(false);
     setIsEnteringNewCategory(false);
-    toast.success('Produto salvo com sucesso!');
+    notify.success('Produto salvo com sucesso!');
   };
 
   const startAddProduct = () => {
@@ -535,7 +535,7 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                                           }
                                         });
                                       } catch (e) {
-                                        toast.error('Não foi possível conectar: ' + (e as Error).message);
+                                        notify.error('Não foi possível conectar: ' + (e as Error).message);
                                       }
                                     }}
                                     className="px-4 py-2 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-gray-800 transition-colors whitespace-nowrap"
@@ -935,7 +935,27 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
 
           {activeTab === 'products' && !editingProduct && (
             <div className="space-y-6">
-              <div className="flex justify-end">
+              <div className="flex justify-between items-center">
+                <button
+                  onClick={async () => {
+                    if (window.confirm("Isso irá adicionar os itens padrão do cardápio que podem estar faltando. Continuar?")) {
+                       try {
+                         const initProductsOrig = (await import('../data/products')).products;
+                         for (const prod of initProductsOrig) {
+                           if (!products.find(p => p.name === prod.name)) {
+                             await addProduct(prod);
+                           }
+                         }
+                         alert("Cardápio base sincronizado!");
+                       } catch (e) {
+                         console.error(e);
+                       }
+                    }
+                  }}
+                  className="text-xs font-bold text-gray-500 hover:text-brand-red transition-colors underline"
+                >
+                  Sincronizar Cardápio C/ PDF
+                </button>
                 <button 
                   onClick={startAddProduct}
                   className="px-6 py-3 bg-brand-red text-white text-[10px] uppercase font-black tracking-widest rounded-xl hover:bg-brand-red-dark transition-colors flex items-center gap-2"
@@ -945,62 +965,134 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                 </button>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-widest text-gray-500">
-                      <th className="p-4 font-bold">Produto</th>
-                      <th className="p-4 font-bold hidden sm:table-cell">Categoria</th>
-                      <th className="p-4 font-bold">Preço</th>
-                      <th className="p-4 font-bold">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products.map(p => (
-                      <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            {p.imageUrl ? (
-                              <img src={p.imageUrl} alt={p.name} className="w-10 h-10 rounded object-cover border border-gray-200" />
-                            ) : (
-                              <div className="w-10 h-10 rounded bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
-                                <ImageIcon className="w-4 h-4" />
+              {config.categories.map(category => {
+                const categoryProducts = products.filter(p => p.category === category);
+                if (categoryProducts.length === 0) return null;
+                return (
+                  <div key={category} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                      <h3 className="font-bold text-gray-700 text-xs uppercase tracking-widest">{category}</h3>
+                      <span className="text-[10px] text-gray-400 font-bold bg-white px-2 py-1 rounded border border-gray-200">{categoryProducts.length} itens</span>
+                    </div>
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-gray-100 text-[10px] uppercase tracking-widest text-gray-500">
+                          <th className="p-4 font-bold">Produto</th>
+                          <th className="p-4 font-bold">Preço</th>
+                          <th className="p-4 font-bold">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {categoryProducts.map(p => (
+                          <tr key={p.id} className="border-b last:border-b-0 border-gray-50 hover:bg-gray-50 transition-colors">
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                {p.imageUrl ? (
+                                  <img src={p.imageUrl} alt={p.name} className="w-10 h-10 rounded object-cover border border-gray-200" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
+                                    <ImageIcon className="w-4 h-4" />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="font-bold text-gray-900 text-sm">{p.name}</div>
+                                  {p.description && <div className="text-[10px] text-gray-500 line-clamp-1">{p.description}</div>}
+                                </div>
                               </div>
-                            )}
-                            <div>
-                              <div className="font-bold text-gray-900 text-sm">{p.name}</div>
-                              <div className="text-[10px] text-gray-500 uppercase tracking-widest sm:hidden">{p.category}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4 hidden sm:table-cell text-xs uppercase tracking-widest text-gray-600 font-medium">{p.category}</td>
-                        <td className="p-4 font-mono font-bold text-brand-red text-sm">{formatCurrency(p.price)}</td>
-                        <td className="p-4">
-                          <div className="flex gap-2">
-                            <button 
-                              onClick={() => {
-                                setEditingProduct(p);
-                                setIsEnteringNewCategory(false);
-                              }}
-                              className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => {
-                                if(confirm('Tem certeza?')) deleteProduct(p.id);
-                              }}
-                              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                            </td>
+                            <td className="p-4 font-mono font-bold text-brand-red text-sm">{p.price === 0 ? 'S/ Valor' : formatCurrency(p.price)}</td>
+                            <td className="p-4">
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => {
+                                    setEditingProduct(p);
+                                    setIsEnteringNewCategory(false);
+                                  }}
+                                  className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    if(confirm('Tem certeza?')) deleteProduct(p.id);
+                                  }}
+                                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+              
+              {products.filter(p => !config.categories.includes(p.category)).length > 0 && (
+                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+                 <div className="bg-gray-50 px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                   <h3 className="font-bold text-gray-700 text-xs uppercase tracking-widest">Outras Categorias</h3>
+                   <span className="text-[10px] text-gray-400 font-bold bg-white px-2 py-1 rounded border border-gray-200">
+                     {products.filter(p => !config.categories.includes(p.category)).length} itens
+                   </span>
+                 </div>
+                 <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-gray-100 text-[10px] uppercase tracking-widest text-gray-500">
+                          <th className="p-4 font-bold">Produto</th>
+                          <th className="p-4 font-bold">Categoria</th>
+                          <th className="p-4 font-bold">Preço</th>
+                          <th className="p-4 font-bold">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {products.filter(p => !config.categories.includes(p.category)).map(p => (
+                          <tr key={p.id} className="border-b last:border-b-0 border-gray-50 hover:bg-gray-50 transition-colors">
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                {p.imageUrl ? (
+                                  <img src={p.imageUrl} alt={p.name} className="w-10 h-10 rounded object-cover border border-gray-200" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
+                                    <ImageIcon className="w-4 h-4" />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="font-bold text-gray-900 text-sm">{p.name}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4 text-xs uppercase tracking-widest text-gray-600">{p.category}</td>
+                            <td className="p-4 font-mono font-bold text-brand-red text-sm">{p.price === 0 ? 'S/ Valor' : formatCurrency(p.price)}</td>
+                            <td className="p-4">
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => {
+                                    setEditingProduct(p);
+                                    setIsEnteringNewCategory(false);
+                                  }}
+                                  className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    if(confirm('Tem certeza?')) deleteProduct(p.id);
+                                  }}
+                                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                 </div>
+              )}
             </div>
           )}
 

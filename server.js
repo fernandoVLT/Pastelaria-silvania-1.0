@@ -79,9 +79,52 @@ app.post('/api/bb-pix', async (req, res) => {
   }
 });
 
-app.get('/api/bb-pix-status/:txid', async (req, res) => {
-  // Lógica para verificar o status se os dados fossem passados via headers ou persistidos
-  res.json({ status: "ATIVA" }); // Mock implementation para sandbox/preview
+app.post('/api/bb-pix-status', async (req, res) => {
+  try {
+    const { txid, bbPixConfig } = req.body;
+    
+    if (!bbPixConfig || !bbPixConfig.enabled || (!bbPixConfig.clientId && !bbPixConfig.clientSecret)) {
+      return res.status(400).json({ error: 'Configuração do Banco do Brasil não definida.' });
+    }
+
+    const { clientId, clientSecret, developerAppKey, isProduction } = bbPixConfig;
+    const authUrl = isProduction ? 'https://oauth.bb.com.br/oauth/token' : 'https://oauth.sandbox.bb.com.br/oauth/token';
+    const baseUrl = isProduction ? 'https://api.bb.com.br/pix/v2' : 'https://api.sandbox.bb.com.br/pix/v2';
+    
+    const authString = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    
+    const tokenRes = await fetch(authUrl + '?gw-app-key=' + developerAppKey, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${authString}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'grant_type=client_credentials&scope=cob.read pix.read'
+    });
+    
+    if (!tokenRes.ok) {
+      return res.status(tokenRes.status).json({ error: 'Erro ao autenticar com Banco do Brasil.' });
+    }
+    
+    const { access_token } = await tokenRes.json();
+    
+    const cobRes = await fetch(`${baseUrl}/cob/${txid}?gw-app-key=${developerAppKey}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${access_token}`
+      }
+    });
+
+    if (!cobRes.ok) {
+      return res.status(cobRes.status).json({ error: 'Erro ao obter status do PIX.' });
+    }
+
+    const cobData = await cobRes.json();
+    return res.json({ status: cobData.status }); // "ATIVA" or "CONCLUIDA"
+  } catch (error) {
+    console.error('Erro get PIX status:', error);
+    res.status(500).json({ error: 'Erro interno no servidor ao consultar PIX.' });
+  }
 });
 
 app.post('/api/abacatepay', async (req, res) => {
