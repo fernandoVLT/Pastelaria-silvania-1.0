@@ -30,7 +30,7 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
     if (!editingProduct) return;
     
     if (isAddingProduct) {
-      addProduct({ ...editingProduct, id: crypto.randomUUID() });
+      addProduct({ ...editingProduct, id: crypto.randomUUID(), createdAt: Date.now() });
     } else {
       updateProduct(editingProduct);
     }
@@ -212,6 +212,17 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
                     />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Ordem de Exibição dos Produtos</label>
+                  <select
+                    value={formConfig.productDisplayOrder || 'additionDate'}
+                    onChange={e => setFormConfig({...formConfig, productDisplayOrder: e.target.value as any})}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
+                  >
+                    <option value="additionDate">Por Adição (Mais antigos primeiro)</option>
+                    <option value="alphabetical">Ordem Alfabética</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Taxa de Entrega Fixa</label>
@@ -967,6 +978,16 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
 
               {config.categories.map(category => {
                 const categoryProducts = products.filter(p => p.category === category);
+                if (config.productDisplayOrder === 'alphabetical') {
+                  categoryProducts.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                } else {
+                  categoryProducts.sort((a, b) => {
+                     const timeA = a.createdAt || 0;
+                     const timeB = b.createdAt || 0;
+                     if (timeA !== timeB) return timeA - timeB;
+                     return (a.id || '').localeCompare(b.id || '', undefined, { numeric: true });
+                  });
+                }
                 if (categoryProducts.length === 0) return null;
                 return (
                   <div key={category} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-6">

@@ -97,6 +97,7 @@ interface StoreConfig {
       name?: string;
     };
   };
+  productDisplayOrder?: 'alphabetical' | 'additionDate';
 }
 
 interface StoreContextType {
@@ -114,6 +115,7 @@ interface StoreContextType {
   addReview: (productId: string, review: Review) => void;
   recordSale: (items: {productId: string, quantity: number}[]) => void;
   createOrder: (orderData: Omit<import('../types').Order, 'id'>) => Promise<string>;
+  updateOrderStatus: (orderId: string, status: import('../types').OrderStatus) => Promise<void>;
 }
 
 const DEFAULT_CONFIG: StoreConfig = {
@@ -368,8 +370,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateOrderStatus = async (orderId: string, status: import('../types').OrderStatus) => {
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { status });
+    } catch (e) {
+      console.error("Error updating order status", e);
+    }
+  };
+
   return (
-    <StoreContext.Provider value={{ products: isLoaded ? products : [], setProducts, config, computedIsOpen, setConfig, updateProduct, addProduct, deleteProduct, notifyAdminCartStarted, favorites, toggleFavorite, addReview, recordSale, createOrder }}>
+    <StoreContext.Provider value={{ products: isLoaded ? products : [], setProducts, config, computedIsOpen, setConfig, updateProduct, addProduct, deleteProduct, notifyAdminCartStarted, favorites, toggleFavorite, addReview, recordSale, createOrder, updateOrderStatus }}>
       {!isLoaded ? (
         <div className="flex items-center justify-center min-h-screen bg-gray-50">
           <div className="text-brand-red font-bold animate-pulse text-sm tracking-widest uppercase">Carregando loja...</div>

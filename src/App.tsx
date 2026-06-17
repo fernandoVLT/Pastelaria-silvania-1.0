@@ -1,12 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { Banner } from './components/Banner';
 import { CartSidebar } from './components/CartSidebar';
 import { CheckoutModal } from './components/CheckoutModal';
 import { Header } from './components/Header';
 import { ProductCard } from './components/ProductCard';
 import { ProductModal } from './components/ProductModal';
-import { AdminModal } from './components/AdminModal';
-import { AdminLoginModal } from './components/AdminLoginModal';
 import { Footer } from './components/Footer';
 import { HeroSplash } from './components/HeroSplash';
 import { CustomerOrdersModal } from './components/CustomerOrdersModal';
@@ -16,6 +14,9 @@ import { cn } from './utils/cn';
 import { MessageSquare, ArrowUpDown } from 'lucide-react';
 import { NotificationContainer, notify } from './components/NotificationOverlay';
 import { motion, AnimatePresence } from 'motion/react';
+
+const AdminModal = lazy(() => import('./components/AdminModal').then(m => ({ default: m.AdminModal })));
+const AdminLoginModal = lazy(() => import('./components/AdminLoginModal').then(m => ({ default: m.AdminLoginModal })));
 
 export default function App() {
   const { products, config, computedIsOpen, favorites, notifyAdminCartStarted } = useStore();
@@ -30,12 +31,17 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFavorites, setShowFavorites] = useState(false);
   const [sortOrder, setSortOrder] = useState<'none' | 'asc' | 'desc'>('none');
+  const [visibleCount, setVisibleCount] = useState(12);
 
   useEffect(() => {
     if (config.categories.length > 0 && !activeCategory) {
       setActiveCategory(config.categories[0]);
     }
   }, [config.categories, activeCategory]);
+
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [activeCategory, searchQuery, showFavorites]);
 
   const handleAddToCart = (item: Omit<CartItem, 'id'>) => {
     if (!computedIsOpen) {
@@ -157,11 +163,25 @@ export default function App() {
   });
 
   const sortedActiveProducts = useMemo(() => {
-    const list = [...activeProducts];
+    let list = [...activeProducts];
+    
+    // Sort by addition date or alphabetical order
+    if (config.productDisplayOrder === 'alphabetical') {
+      list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    } else {
+      // Sort by creation date (older first). For products before this update, they might not have createdAt.
+      list.sort((a, b) => {
+         const timeA = a.createdAt || 0;
+         const timeB = b.createdAt || 0;
+         if (timeA !== timeB) return timeA - timeB;
+         return (a.id || '').localeCompare(b.id || '', undefined, { numeric: true });
+      });
+    }
+
     if (sortOrder === 'asc') return list.sort((a, b) => a.price - b.price);
     if (sortOrder === 'desc') return list.sort((a, b) => b.price - a.price);
     return list;
-  }, [activeProducts, sortOrder]);
+  }, [activeProducts, sortOrder, config.productDisplayOrder]);
 
   const getQuantityInCart = (productId: string) => {
     return cartItems.filter(item => item.product.id === productId).reduce((sum, item) => sum + item.quantity, 0);
@@ -280,7 +300,7 @@ export default function App() {
             {/* Product Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 relative">
               <AnimatePresence mode="popLayout">
-                {sortedActiveProducts.map((product, index) => (
+                {sortedActiveProducts.slice(0, visibleCount).map((product, index) => (
                   <motion.div 
                     layout
                     key={product.id}
@@ -306,6 +326,17 @@ export default function App() {
                 </div>
               )}
             </div>
+            
+            {visibleCount < sortedActiveProducts.length && (
+              <div className="mt-8 flex justify-center">
+                <button
+                  onClick={() => setVisibleCount(v => v + 12)}
+                  className="bg-white border text-xs tracking-widest uppercase font-bold text-gray-700 hover:bg-gray-50 hover:text-gray-900 border-gray-200 py-3 px-8 rounded-full shadow-sm transition-all"
+                >
+                  Carregar Mais Itens
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -384,17 +415,21 @@ export default function App() {
       )}
 
       {isAdminOpen && (
-        <AdminModal onClose={() => setIsAdminOpen(false)} />
+        <Suspense fallback={<div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center"><div className="w-8 h-8 rounded-full border-4 border-white/20 border-t-white animate-spin"></div></div>}>
+          <AdminModal onClose={() => setIsAdminOpen(false)} />
+        </Suspense>
       )}
 
       {isAdminLoginOpen && (
-        <AdminLoginModal
-          onClose={() => setIsAdminLoginOpen(false)}
-          onSuccess={() => {
-            setIsAdminLoginOpen(false);
-            setIsAdminOpen(true);
-          }}
-        />
+        <Suspense fallback={<div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center"><div className="w-8 h-8 rounded-full border-4 border-white/20 border-t-white animate-spin"></div></div>}>
+          <AdminLoginModal
+            onClose={() => setIsAdminLoginOpen(false)}
+            onSuccess={() => {
+              setIsAdminLoginOpen(false);
+              setIsAdminOpen(true);
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Floating WhatsApp Button */}

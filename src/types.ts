@@ -19,6 +19,7 @@ export interface Product {
   salesCount?: number;
   isBestSeller?: boolean;
   stock?: number;
+  createdAt?: number;
 }
 
 export interface CartItem {
