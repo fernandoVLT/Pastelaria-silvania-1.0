@@ -363,7 +363,7 @@ export function AdminOrders() {
           <span className="bg-white text-gray-500 font-bold text-xs px-2 py-1 rounded-full shadow-sm">{columnOrders.length}</span>
         </div>
 
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence>
           {columnOrders.map(order => (
             <motion.div 
               layout

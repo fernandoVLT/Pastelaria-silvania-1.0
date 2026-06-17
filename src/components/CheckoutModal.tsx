@@ -149,7 +149,10 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
         };
       }
 
-      const orderId = await createOrder(orderData);
+      // Firestore doesn't accept undefined values
+      const cleanOrderData = JSON.parse(JSON.stringify(orderData));
+
+      const orderId = await createOrder(cleanOrderData);
       setCreatedOrderId(orderId);
 
       recordSale(items.map(i => ({ productId: i.product.id, quantity: i.quantity })));
