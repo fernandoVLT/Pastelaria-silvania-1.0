@@ -192,7 +192,7 @@ async function startServer() {
     app.use(express.static(join(__dirname, 'dist')));
 
     // Redirecionar todas as outras requisições para o index.html (para o React Router funcionar)
-    app.get('*all', (req, res) => {
+    app.get('*', (req, res) => {
       res.sendFile(join(__dirname, 'dist', 'index.html'));
     });
   }
