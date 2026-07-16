@@ -313,7 +313,7 @@ export function AdminOrders() {
     // Check if USB printing is enabled
     if (config.printConfig?.usbPrinter) {
       try {
-        const success = await printDirectToUsb(order);
+        const success = await printDirectToUsb(order, config.printConfig.usbPrinter);
         if (success) {
           notify.success('Impresso via USB com sucesso!');
           return;

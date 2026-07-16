@@ -1,6 +1,9 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -124,58 +127,6 @@ app.post('/api/bb-pix-status', async (req, res) => {
   } catch (error) {
     console.error('Erro get PIX status:', error);
     res.status(500).json({ error: 'Erro interno no servidor ao consultar PIX.' });
-  }
-});
-
-app.post('/api/abacatepay', async (req, res) => {
-  try {
-    const { amount, customerName, customerPhone, items } = req.body;
-    
-    if (!process.env.ABACATEPAY_API_KEY) {
-      return res.status(500).json({ error: 'Configuração do AbacatePay ausente no servidor.' });
-    }
-
-    const priceCents = Math.round(amount * 100);
-
-    const abacateResponse = await fetch('https://api.abacatepay.com/v1/billing/create', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.ABACATEPAY_API_KEY}`
-      },
-      body: JSON.stringify({
-        frequency: "ONE_TIME",
-        methods: ["PIX"],
-        products: [
-          {
-            externalId: "pedido_geral",
-            name: "Pedido Food Delivery",
-            quantity: 1,
-            price: priceCents,
-            description: items ? items.map((i) => `${i.quantity}x ${i.productName}`).join(', ') : "Pedido no Delivery"
-          }
-        ],
-        returnUrl: "https://abacatepay.com",
-        completionUrl: "https://abacatepay.com",
-        customer: {
-          name: customerName || "Cliente Generico",
-          email: "cliente@delivery.com",
-          cellphone: customerPhone?.replace(/\D/g, '') || "31999999999"
-        }
-      })
-    });
-
-    if (!abacateResponse.ok) {
-      const errorText = await abacateResponse.text();
-      console.error('AbacatePay erro:', errorText);
-      return res.status(abacateResponse.status).json({ error: 'Erro ao gerar PIX com AbacatePay.', details: errorText });
-    }
-
-    const abacateData = await abacateResponse.json();
-    return res.json(abacateData);
-  } catch (error) {
-    console.error('Erro na API abacatepay:', error);
-    res.status(500).json({ error: 'Erro interno no servidor.' });
   }
 });
 

@@ -203,7 +203,6 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       wppMessage += `*${paymentMethod}*: ${formatCurrency(finalTotal)}\n\n`;
       wppMessage += `⏱️ *Tempo Estimado:* ${timeMessage}`;
 
-      let abacateUrl = '';
       if (paymentMethod === 'Pix') {
         if (config.bbPixConfig?.enabled) {
           try {
@@ -228,29 +227,13 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
             console.error("Erro ao gerar BB Pix", err);
           }
         } else {
-          try {
-            const abacateRes = await fetch('/api/abacatepay', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                amount: finalTotal,
-                customerName: name.trim(),
-                customerPhone: phone.trim(),
-                items: orderItems
-              })
-            });
-            const abacateData = await abacateRes.json();
-            if (abacateData?.data?.url) {
-              abacateUrl = abacateData.data.url;
-            }
-          } catch (err) {
-            console.error("Erro ao gerar AbacatePay", err);
-          }
+          const staticPixKey = config.pixKey || '5531996698807';
+          const staticPixName = config.pixReceiverName || 'SILVANIA BARRETO DE ALMEIDA';
+          const staticPixCity = config.pixReceiverCity || 'BELO HORIZONTE';
+          const pixCode = generatePixCode(staticPixKey, staticPixName, staticPixCity, finalTotal);
+          setBbBrcode(pixCode);
+          wppMessage += `\n🔗 *Código PIX Copia e Cola:* \n${pixCode}\n`;
         }
-      }
-
-      if (abacateUrl) {
-        wppMessage += `\n🔗 *Link para Pagamento:* \n${abacateUrl}\n`;
       }
 
       const wpNumber = config.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';
@@ -259,11 +242,6 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       const newWindow = window.open(wpUrl, '_blank');
       // Adiciona o wpUrl ao estado para usar depois se o bloqueador de popup tiver agido
       setWpUrl(wpUrl);
-      
-      // Armazena o link do AbacatePay no estado se disponível (usando o setWpUrl existente ou criando um novo estado)
-      if (abacateUrl) {
-         setPaymentLink(abacateUrl);
-      }
       
       setIsOrderSent(true);
       notify.success('Pedido enviado com sucesso!');
@@ -590,9 +568,9 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                          <QrCode className="w-6 h-6" />
                       </div>
                       <p className="text-xs text-gray-700 font-bold mb-1">
-                        Pagamento Seguro via PIX {config.bbPixConfig?.enabled ? '(Banco do Brasil)' : '(AbacatePay)'}
+                        Pagamento Seguro via PIX {config.bbPixConfig?.enabled ? '(Banco do Brasil)' : ''}
                       </p>
-                      <p className="text-[10px] text-gray-500 font-medium">Após confirmar, você receberá um {config.bbPixConfig?.enabled ? 'QR Code automático' : 'link'} para pagar e seu pedido será enviado pelo WhatsApp.</p>
+                      <p className="text-[10px] text-gray-500 font-medium">Após confirmar, você receberá o QR Code para pagar e seu pedido será enviado pelo WhatsApp.</p>
                       <div className="mt-3 py-2 px-4 bg-teal-50 border border-teal-100 rounded-xl inline-flex hidden">
                         {/* We use hidden here to keep the generatePixCode valid if it's imported, preventing TS errors */}
                         {generatePixCode('', '', '', 0)}

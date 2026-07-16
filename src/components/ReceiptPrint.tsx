@@ -16,7 +16,7 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
           Pastelaria da Silvânia
         </h2>
         <div style={{ fontSize: '10px' }}>
-          VIA {type === 'kitchen' ? 'COZINHA' : 'ENTREGA/CLIENTE'}
+          VIA {type === 'kitchen' ? 'COZINHA' : 'MOTOBOY / ENTREGA'}
         </div>
       </div>
       
@@ -67,7 +67,7 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
          </div>
       )}
 
-      {order.orderType === 'Delivery' && order.address && (
+      {type === 'dispatch' && order.orderType === 'Delivery' && order.address && (
          <div className="receipt-address text-xs mb-4 border-b border-dashed border-gray-400 pb-2">
            <div className="font-bold mb-1 uppercase">Endereço de Entrega</div>
            <div>{order.address.street}, {order.address.number}</div>
@@ -76,7 +76,7 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
          </div>
       )}
 
-      {order.orderType === 'Delivery' && order.paymentMethod && (
+      {type === 'dispatch' && order.orderType === 'Delivery' && order.paymentMethod && (
          <div className="receipt-payment text-xs">
            <div className="font-bold uppercase">Pagamento (Presencial)</div>
            <div>{order.paymentMethod}</div>

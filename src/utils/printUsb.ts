@@ -48,7 +48,7 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
   enc.bold(true);
   enc.text("Pastelaria da Silvania");
   enc.newline(2);
-  enc.text(`VIA ${type === 'kitchen' ? 'COZINHA' : 'ENTREGA/CLIENTE'}`);
+  enc.text(`VIA ${type === 'kitchen' ? 'COZINHA' : 'MOTOBOY / ENTREGA'}`);
   enc.newline(2);
   
   enc.alignLeft();
@@ -63,7 +63,16 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
   }
   enc.newline();
   enc.text(`Tipo: ${order.orderType}`);
-  enc.newline(2);
+  enc.newline();
+  
+  // Exibir observações
+  if (order.observation) {
+    enc.bold(true);
+    enc.text(`OBS: ${order.observation}`);
+    enc.bold(false);
+    enc.newline();
+  }
+  enc.newline();
   
   enc.alignCenter();
   enc.text("--- Itens do Pedido ---");
@@ -99,7 +108,8 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
     enc.bold(false);
   }
   
-  if (order.orderType === 'Delivery' && order.address) {
+  // Endereço e pagamento apenas para a via do Motoboy / Entrega
+  if (type === 'dispatch' && order.orderType === 'Delivery' && order.address) {
     enc.alignCenter();
     enc.bold(true);
     enc.text("--- Endereco Entrega ---");
@@ -136,7 +146,7 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
 /**
  * Attempts to print to a connected USB printer
  */
-export async function printDirectToUsb(order: Order): Promise<boolean> {
+export async function printDirectToUsb(order: Order, usbPrinterConfig?: { vendorId: number; productId: number }): Promise<boolean> {
   const winNav = window.navigator as any;
   if (!winNav.usb) {
     console.warn("WebUSB not supported");
@@ -145,10 +155,33 @@ export async function printDirectToUsb(order: Order): Promise<boolean> {
   
   try {
     const devices = await winNav.usb.getDevices();
-    let device = devices.find((d: any) => d.vendorId);
+    let device: any = null;
     
-    // Check local storage for preferred if multiple? Or just use first.
-    if (!device) return false;
+    if (usbPrinterConfig) {
+      device = devices.find((d: any) => 
+        d.vendorId === usbPrinterConfig.vendorId && 
+        d.productId === usbPrinterConfig.productId
+      );
+    }
+    
+    // Fallback search if no specific match is found
+    if (!device) {
+      device = devices.find((d: any) => 
+        d.vendorId === 1155 || // STMicroelectronics (Elgin/thermal printers vendor)
+        d.vendorId === 0x0483 ||
+        (d.productName && d.productName.toLowerCase().includes('print'))
+      );
+    }
+    
+    // Final fallback: use first available device if no match
+    if (!device && devices.length > 0) {
+      device = devices[0];
+    }
+    
+    if (!device) {
+      console.warn("Nenhuma impressora USB pareada foi encontrada.");
+      return false;
+    }
     
     if (!device.opened) {
       await device.open();
@@ -184,10 +217,14 @@ export async function printDirectToUsb(order: Order): Promise<boolean> {
     await device.claimInterface(interfaceNumber);
     
     const kitchenReceipt = buildReceipt(order, 'kitchen');
-    await device.transferOut(outEndpoint.endpointNumber, kitchenReceipt);
-    
     const dispatchReceipt = buildReceipt(order, 'dispatch');
-    await device.transferOut(outEndpoint.endpointNumber, dispatchReceipt);
+    
+    // Concatenar os dois recibos em um único buffer para garantir impressão completa em lote único via USB
+    const combinedReceipt = new Uint8Array(kitchenReceipt.length + dispatchReceipt.length);
+    combinedReceipt.set(kitchenReceipt);
+    combinedReceipt.set(dispatchReceipt, kitchenReceipt.length);
+    
+    await device.transferOut(outEndpoint.endpointNumber, combinedReceipt);
     
     return true;
   } catch (err) {
