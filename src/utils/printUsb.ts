@@ -32,18 +32,18 @@ class EscPosEncoder {
     for (let i = 0; i < count; i++) this.buffer.push(0x0a);
   }
   cut() {
-    // Feed only 2 lines (about 8mm, the minimum to clear the physical thermal print head)
-    // to ensure text clears the cutter with absolute minimal paper consumption!
-    this.buffer.push(0x0a, 0x0a);
+    // Feed 3 clean lines to move the printed text past the thermal print head to the cutting blade position.
+    this.buffer.push(0x0a, 0x0a, 0x0a);
     
-    // Highly compatible cut commands sent back-to-back covering all thermal printer families:
-    this.buffer.push(0x1d, 0x56, 0x01);       // 1. GS V 1 (Standard ESC/POS partial cut)
-    this.buffer.push(0x1d, 0x56, 0x42, 0x00); // 2. GS V 66 0 (Feed and partial cut)
-    this.buffer.push(0x1d, 0x56, 0x00);       // 3. GS V 0 (Standard ESC/POS full cut)
-    this.buffer.push(0x1d, 0x56, 0x41, 0x00); // 4. GS V 65 0 (Feed and full cut)
-    this.buffer.push(0x1b, 0x6d);             // 5. ESC m (Epson/Elgin/Chinese partial cut fallback)
-    this.buffer.push(0x1b, 0x69);             // 6. ESC i (Epson/Elgin/Chinese full cut fallback)
-    this.buffer.push(0x1b, 0x77);             // 7. ESC w (Bematech native cut fallback)
+    // Clean, high-compatibility cut commands targeting the two major thermal printer command families:
+    // 1. GS V 66 0 (0x1D, 0x56, 0x42, 0x00): The universal standard ESC/POS command for auto-feed and partial cut (Elgin i9, Xprinter, Epson, Daruma)
+    this.buffer.push(0x1d, 0x56, 0x42, 0x00);
+    
+    // 2. ESC m (0x1B, 0x6D): The classic partial cut fallback command (Bematech MP-4200, older Elgin models, generic thermal printers)
+    this.buffer.push(0x1b, 0x6d);
+    
+    // 3. ESC w (0x1B, 0x77): Native Bematech cut command fallback
+    this.buffer.push(0x1b, 0x77);
   }
   encode() {
     return new Uint8Array(this.buffer);
@@ -66,7 +66,7 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
   enc.bold(false);
   enc.text(`Pedido: #${order.id?.substring(0, 6).toUpperCase()}`);
   enc.newline();
-  enc.text(`Data: ${new Date(order.createdAt).toLocaleString()}`);
+  enc.text(`Data: ${new Date(order.createdAt).toLocaleDateString()} ${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`);
   enc.newline();
   enc.text(`Cliente: ${order.customerName}`);
   if (order.customerPhone) {
@@ -96,7 +96,7 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
     enc.bold(false);
     enc.text(`${item.productName}`);
     if (type === 'dispatch') {
-      enc.text(` - ${formatCurrency(item.price * item.quantity)}`);
+      enc.text(` (${formatCurrency(item.price * item.quantity)})`);
     }
     enc.newline();
     if (item.category) {
@@ -106,6 +106,8 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
   });
   
   if (type === 'dispatch') {
+    enc.text("--------------------------------");
+    enc.newline();
     enc.bold(true);
     enc.text(`Subtotal: ${formatCurrency(order.subtotal)}`);
     enc.newline();
