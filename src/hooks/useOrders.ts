@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Order, OrderStatus } from '../types';
 import { notify } from '../components/NotificationOverlay';
@@ -10,7 +10,13 @@ export function useOrders() {
   const isFirstLoad = useRef(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+    // Limita a consulta em tempo real para os últimos 15 dias para garantir performance máxima no mobile e custo zero (Free Tier)
+    const fifteenDaysAgo = Date.now() - 15 * 24 * 60 * 60 * 1000;
+    const q = query(
+      collection(db, 'orders'), 
+      where('createdAt', '>=', fifteenDaysAgo),
+      orderBy('createdAt', 'desc')
+    );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (!isFirstLoad.current) {
