@@ -32,16 +32,18 @@ class EscPosEncoder {
     for (let i = 0; i < count; i++) this.buffer.push(0x0a);
   }
   cut() {
-    // Feed only 3 lines (about 12mm, the exact distance between thermal head and cutter)
-    // to ensure the printed text has cleared the cutter without wasting any extra paper!
-    this.buffer.push(0x0a, 0x0a, 0x0a);
+    // Feed only 2 lines (about 8mm, the minimum to clear the physical thermal print head)
+    // to ensure text clears the cutter with absolute minimal paper consumption!
+    this.buffer.push(0x0a, 0x0a);
     
-    // Highly compatible cut commands sent back-to-back:
-    this.buffer.push(0x1d, 0x56, 0x01); // 1. GS V 1 (Standard ESC/POS partial cut)
-    this.buffer.push(0x1d, 0x56, 0x31); // 2. GS V '1' (Alternative ESC/POS partial cut)
-    this.buffer.push(0x1b, 0x6d);       // 3. ESC m (Epson/Elgin/Chinese partial cut fallback)
-    this.buffer.push(0x1b, 0x69);       // 4. ESC i (Epson/Elgin/Chinese full cut fallback)
-    this.buffer.push(0x1b, 0x77);       // 5. ESC w (Bematech native cut fallback)
+    // Highly compatible cut commands sent back-to-back covering all thermal printer families:
+    this.buffer.push(0x1d, 0x56, 0x01);       // 1. GS V 1 (Standard ESC/POS partial cut)
+    this.buffer.push(0x1d, 0x56, 0x42, 0x00); // 2. GS V 66 0 (Feed and partial cut)
+    this.buffer.push(0x1d, 0x56, 0x00);       // 3. GS V 0 (Standard ESC/POS full cut)
+    this.buffer.push(0x1d, 0x56, 0x41, 0x00); // 4. GS V 65 0 (Feed and full cut)
+    this.buffer.push(0x1b, 0x6d);             // 5. ESC m (Epson/Elgin/Chinese partial cut fallback)
+    this.buffer.push(0x1b, 0x69);             // 6. ESC i (Epson/Elgin/Chinese full cut fallback)
+    this.buffer.push(0x1b, 0x77);             // 7. ESC w (Bematech native cut fallback)
   }
   encode() {
     return new Uint8Array(this.buffer);
@@ -222,15 +224,13 @@ export async function printDirectToUsb(order: Order, usbPrinterConfig?: { vendor
     await device.claimInterface(interfaceNumber);
     
     const kitchenReceipt = buildReceipt(order, 'kitchen');
+    await device.transferOut(outEndpoint.endpointNumber, kitchenReceipt);
+    
+    // Give 850ms to allow physical printer cutter to complete before sending next job block
+    await new Promise(resolve => setTimeout(resolve, 850));
+    
     const dispatchReceipt = buildReceipt(order, 'dispatch');
-    
-    // Concatenate both receipts into a single buffer so that USB transmission is instantaneous
-    // and both parts print back-to-back with hardware cut commands executed immediately by the printer.
-    const combinedReceipt = new Uint8Array(kitchenReceipt.length + dispatchReceipt.length);
-    combinedReceipt.set(kitchenReceipt);
-    combinedReceipt.set(dispatchReceipt, kitchenReceipt.length);
-    
-    await device.transferOut(outEndpoint.endpointNumber, combinedReceipt);
+    await device.transferOut(outEndpoint.endpointNumber, dispatchReceipt);
     
     return true;
   } catch (err) {

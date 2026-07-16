@@ -12,36 +12,36 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
 
   const renderVia = (type: 'kitchen' | 'dispatch') => (
     <div className="receipt-via">
-      <div className="receipt-header">
-        <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 5px' }}>
+      <div className="receipt-header" style={{ textAlign: 'center', marginBottom: '4px' }}>
+        <h2 style={{ fontSize: '13px', fontWeight: 'bold', margin: '0 0 1px' }}>
           Pastelaria da Silvânia
         </h2>
-        <div style={{ fontSize: '10px' }}>
+        <div style={{ fontSize: '9px', fontWeight: 'bold', border: '1px solid #000', display: 'inline-block', padding: '1px 4px', textTransform: 'uppercase' }}>
           VIA {type === 'kitchen' ? 'COZINHA' : 'MOTOBOY / ENTREGA'}
         </div>
       </div>
       
-      <div className="receipt-details text-xs space-y-1 mb-4 border-y border-dashed border-gray-400 py-2">
+      <div className="receipt-details text-[10px] space-y-0.5 mb-1.5 border-y border-dashed border-black py-1">
         <div><strong>Pedido:</strong> #{order.id?.substring(0,6).toUpperCase()}</div>
         <div><strong>Data:</strong> {new Date(order.createdAt).toLocaleString()}</div>
         <div><strong>Cliente:</strong> {order.customerName}</div>
         {order.customerPhone && <div><strong>Tel:</strong> {order.customerPhone}</div>}
         <div><strong>Tipo:</strong> {order.orderType}</div>
-        {order.observation && <div className="mt-1 font-bold border border-gray-400 p-1">OBS: {order.observation}</div>}
+        {order.observation && <div className="mt-0.5 font-bold border border-black p-0.5">OBS: {order.observation}</div>}
       </div>
 
-      <div className="receipt-items mb-4 border-b border-dashed border-gray-400 pb-2">
-        <div className="font-bold text-xs mb-2 uppercase">Itens do Pedido</div>
+      <div className="receipt-items mb-1.5 border-b border-dashed border-black pb-1">
+        <div className="font-bold text-[9px] mb-1 uppercase text-center">Itens do Pedido</div>
         {order.items.map((item, idx) => (
-          <div key={idx} className="flex flex-col text-xs mb-2">
+          <div key={idx} className="flex flex-col text-[10px] mb-0.5 leading-tight">
             <div className="flex justify-between items-start">
-              <div style={{ flex: 1, paddingRight: '10px' }}>
+              <div style={{ flex: 1, paddingRight: '5px' }}>
                 <strong>{item.quantity}x</strong> {item.productName}
               </div>
               {type === 'dispatch' && <div>{formatCurrency(item.price * item.quantity)}</div>}
             </div>
             {item.category && (
-              <div style={{ paddingLeft: '18px', fontSize: '10px', color: '#555', marginTop: '2px', fontWeight: 'bold' }}>
+              <div style={{ paddingLeft: '15px', fontSize: '8px', color: '#333', marginTop: '1px', fontWeight: 'bold' }}>
                 [{item.category}]
               </div>
             )}
@@ -50,7 +50,7 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
       </div>
 
       {type === 'dispatch' && (
-         <div className="receipt-totals text-xs mb-4 border-b border-dashed border-gray-400 pb-2">
+         <div className="receipt-totals text-[10px] mb-1.5 border-b border-dashed border-black pb-1 space-y-0.5">
            <div className="flex justify-between">
              <span>Subtotal:</span>
              <span>{formatCurrency(order.subtotal)}</span>
@@ -61,7 +61,7 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
                <span>{formatCurrency(order.deliveryFee)}</span>
              </div>
            )}
-           <div className="flex justify-between font-bold text-sm mt-1">
+           <div className="flex justify-between font-bold text-xs">
              <span>Total:</span>
              <span>{formatCurrency(order.total)}</span>
            </div>
@@ -69,8 +69,8 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
       )}
 
       {type === 'dispatch' && order.orderType === 'Delivery' && order.address && (
-         <div className="receipt-address text-xs mb-4 border-b border-dashed border-gray-400 pb-2">
-           <div className="font-bold mb-1 uppercase">Endereço de Entrega</div>
+         <div className="receipt-address text-[10px] mb-1.5 border-b border-dashed border-black pb-1">
+           <div className="font-bold mb-0.5 uppercase">Endereço de Entrega</div>
            <div>{order.address.street}, {order.address.number}</div>
            <div>{order.address.neighborhood}</div>
            {order.address.complement && <div>{order.address.complement}</div>}
@@ -78,14 +78,13 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
       )}
 
       {type === 'dispatch' && order.orderType === 'Delivery' && order.paymentMethod && (
-         <div className="receipt-payment text-xs">
-           <div className="font-bold uppercase">Pagamento (Presencial)</div>
-           <div>{order.paymentMethod}</div>
+         <div className="receipt-payment text-[10px] mb-1">
+           <strong>Pagamento:</strong> {order.paymentMethod}
          </div>
       )}
 
       {order.scheduledDate && order.scheduledTime && (
-         <div className="receipt-schedule text-xs mt-3 bg-gray-100 p-2 text-center rounded font-bold border border-gray-400 border-dashed">
+         <div className="receipt-schedule text-[9px] mt-1 bg-gray-50 p-1 text-center font-bold border border-black border-dashed">
             AGENDADO PARA: {order.scheduledDate.split('-').reverse().join('/')} às {order.scheduledTime}
          </div>
       )}
@@ -93,18 +92,42 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
   );
 
   return (
-    <div ref={ref} className="receipt-container" style={{ padding: '0', width: '300px', fontFamily: 'monospace', color: '#000', backgroundColor: '#fff', fontSize: '12px' }}>
+    <div ref={ref} className="receipt-container" style={{ padding: '0', width: '280px', fontFamily: 'monospace', color: '#000', backgroundColor: '#fff', fontSize: '11px', lineHeight: '1.2' }}>
       <style>
         {`
           @media print {
-            body { margin: 0; padding: 0; background: #fff !important; }
-            .receipt-container { width: 100% !important; max-width: 80mm !important; margin: 0 auto; display: block !important; }
-            .receipt-via { display: block !important; page-break-inside: avoid; break-inside: avoid; }
+            @page {
+              margin: 0 !important;
+              size: auto;
+            }
+            body { 
+              margin: 0 !important; 
+              padding: 0 !important; 
+              background: #fff !important; 
+            }
+            .receipt-container { 
+              width: 100% !important; 
+              max-width: 80mm !important; 
+              margin: 0 !important; 
+              padding: 0 !important; 
+              display: block !important; 
+            }
+            .receipt-via { 
+              display: block !important; 
+              page-break-inside: avoid !important; 
+              break-inside: avoid !important; 
+              margin: 0 !important;
+              padding: 2mm 4mm !important;
+            }
             .page-break { 
               display: block !important;
               page-break-after: always !important; 
               break-after: page !important; 
               clear: both;
+              margin: 0 !important;
+              padding: 0 !important;
+              border: none !important;
+              height: 0 !important;
             }
           }
           .receipt-container * { box-sizing: border-box; }
