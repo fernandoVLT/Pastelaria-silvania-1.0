@@ -2,7 +2,6 @@ import { memo } from 'react';
 import { Plus, Heart, Minus } from 'lucide-react';
 import { Product } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
-import { useStore } from '../contexts/StoreContext';
 
 interface Props {
   product: Product;
@@ -10,11 +9,19 @@ interface Props {
   quantityInCart?: number;
   onIncrement?: () => void;
   onDecrement?: () => void;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
 }
 
-export const ProductCard = memo(function ProductCard({ product, onClick, quantityInCart = 0, onIncrement, onDecrement }: Props) {
-  const { favorites, toggleFavorite } = useStore();
-  const isFavorite = favorites.includes(product.id);
+export const ProductCard = memo(function ProductCard({ 
+  product, 
+  onClick, 
+  quantityInCart = 0, 
+  onIncrement, 
+  onDecrement,
+  isFavorite,
+  onToggleFavorite
+}: Props) {
   const isOutOfStock = product.stock !== undefined && product.stock <= 0;
 
   return (
@@ -27,7 +34,7 @@ export const ProductCard = memo(function ProductCard({ product, onClick, quantit
       <div className="absolute -right-12 -top-12 w-32 h-32 sm:w-48 sm:h-48 bg-brand-yellow/10 group-hover:bg-brand-yellow/20 transition-colors rounded-full blur-3xl"></div>
       
       <button 
-        onClick={(e) => { e.stopPropagation(); toggleFavorite(product.id); }}
+        onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
         className="absolute top-2 right-2 sm:top-4 sm:right-4 z-20 p-2 sm:bg-white/80 backdrop-blur-sm rounded-full sm:shadow-sm hover:scale-110 transition-transform"
       >
         <Heart className={`w-4 h-4 ${isFavorite ? 'text-brand-red fill-current' : 'text-gray-300 sm:text-gray-400'}`} />

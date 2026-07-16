@@ -19,7 +19,7 @@ const AdminModal = lazy(() => import('./components/AdminModal').then(m => ({ def
 const AdminLoginModal = lazy(() => import('./components/AdminLoginModal').then(m => ({ default: m.AdminLoginModal })));
 
 export default function App() {
-  const { products, config, computedIsOpen, favorites, notifyAdminCartStarted } = useStore();
+  const { products, config, computedIsOpen, favorites, toggleFavorite, notifyAdminCartStarted } = useStore();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -148,22 +148,20 @@ export default function App() {
 
   const total = cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
 
-  const filterBySearch = (p: Product) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return p.name.toLowerCase().includes(q) || (p.description && p.description.toLowerCase().includes(q));
-  };
-
-  const activeProducts = products.filter(p => {
-    if (!filterBySearch(p)) return false;
-    if (showFavorites) {
-      return favorites.includes(p.id);
-    }
-    return p.category === activeCategory;
-  });
-
   const sortedActiveProducts = useMemo(() => {
-    let list = [...activeProducts];
+    const activeList = products.filter(p => {
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchesSearch = p.name.toLowerCase().includes(q) || (p.description && p.description.toLowerCase().includes(q));
+        if (!matchesSearch) return false;
+      }
+      if (showFavorites) {
+        return favorites.includes(p.id);
+      }
+      return p.category === activeCategory;
+    });
+
+    let list = [...activeList];
     
     // Sort by addition date or alphabetical order
     if (config.productDisplayOrder === 'alphabetical') {
@@ -181,19 +179,21 @@ export default function App() {
     if (sortOrder === 'asc') return list.sort((a, b) => a.price - b.price);
     if (sortOrder === 'desc') return list.sort((a, b) => b.price - a.price);
     return list;
-  }, [activeProducts, sortOrder, config.productDisplayOrder]);
+  }, [products, searchQuery, showFavorites, favorites, activeCategory, sortOrder, config.productDisplayOrder]);
 
   const getQuantityInCart = (productId: string) => {
     return cartItems.filter(item => item.product.id === productId).reduce((sum, item) => sum + item.quantity, 0);
   };
 
-  const bestSellers = [...products]
-    .sort((a, b) => {
-      if (a.isBestSeller && !b.isBestSeller) return -1;
-      if (!a.isBestSeller && b.isBestSeller) return 1;
-      return (b.salesCount || 0) - (a.salesCount || 0);
-    })
-    .slice(0, 4);
+  const bestSellers = useMemo(() => {
+    return [...products]
+      .sort((a, b) => {
+        if (a.isBestSeller && !b.isBestSeller) return -1;
+        if (!a.isBestSeller && b.isBestSeller) return 1;
+        return (b.salesCount || 0) - (a.salesCount || 0);
+      })
+      .slice(0, 4);
+  }, [products]);
 
   const handleAdminLogin = () => {
     if (config.adminPassword) {
@@ -248,6 +248,8 @@ export default function App() {
                       quantityInCart={getQuantityInCart(product.id)}
                       onIncrement={() => handleUpdateProductQuantity(product, 1)}
                       onDecrement={() => handleUpdateProductQuantity(product, -1)}
+                      isFavorite={favorites.includes(product.id)}
+                      onToggleFavorite={() => toggleFavorite(product.id)}
                     />
                   </motion.div>
                 ))}
@@ -316,6 +318,8 @@ export default function App() {
                       quantityInCart={getQuantityInCart(product.id)}
                       onIncrement={() => handleUpdateProductQuantity(product, 1)}
                       onDecrement={() => handleUpdateProductQuantity(product, -1)}
+                      isFavorite={favorites.includes(product.id)}
+                      onToggleFavorite={() => toggleFavorite(product.id)}
                     />
                   </motion.div>
                 ))}

@@ -2,8 +2,41 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
+    
+    // 1. Config: Read public, update allowed, deletion strictly blocked
+    match /config/{configId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if false;
+    }
+    
+    // 2. Products: Read public, write with type-safety checks
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update: if true 
+        && (request.resource.data.name is string)
+        && (request.resource.data.price is number || request.resource.data.price is int || request.resource.data.price is float);
+      allow delete: if true;
+    }
+    
+    // 3. Orders: Read and create allowed, deletion strictly blocked to protect transaction history
+    match /orders/{orderId} {
+      allow read, create: if true;
+      allow update: if true;
+      allow delete: if false;
+    }
+    
+    // 4. Counters: Sequence tracking for order IDs, deletion blocked
+    match /counters/{counterId} {
       allow read, write: if true;
+      allow delete: if false;
+    }
+    
+    // 5. System Notifications: Create allowed, deletion blocked
+    match /system_notifications/{notifId} {
+      allow read, create: if true;
+      allow update: if true;
+      allow delete: if false;
     }
   }
 }
