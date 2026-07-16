@@ -32,7 +32,18 @@ class EscPosEncoder {
     for (let i = 0; i < count; i++) this.buffer.push(0x0a);
   }
   cut() {
-    this.buffer.push(0x1d, 0x56, 0x41, 0x00);
+    // Feed 5 lines so that the printed text is past the physical paper cutter
+    this.buffer.push(0x0a, 0x0a, 0x0a, 0x0a, 0x0a);
+    
+    // Try multiple standard ESC/POS cut commands to ensure high compatibility:
+    // 1. GS V 66 0 (Feed and cut - standard for modern printers)
+    this.buffer.push(0x1d, 0x56, 0x42, 0x00);
+    // 2. GS V 0 (Standard full cut fallback)
+    this.buffer.push(0x1d, 0x56, 0x00);
+    // 3. ESC m (Cut for generic/Chinese printers fallback)
+    this.buffer.push(0x1b, 0x6d);
+    // 4. ESC i (Alternative cut command fallback)
+    this.buffer.push(0x1b, 0x69);
   }
   encode() {
     return new Uint8Array(this.buffer);
@@ -217,14 +228,13 @@ export async function printDirectToUsb(order: Order, usbPrinterConfig?: { vendor
     await device.claimInterface(interfaceNumber);
     
     const kitchenReceipt = buildReceipt(order, 'kitchen');
+    await device.transferOut(outEndpoint.endpointNumber, kitchenReceipt);
+    
+    // Give 800ms to allow physical cutter to complete before sending next job
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
     const dispatchReceipt = buildReceipt(order, 'dispatch');
-    
-    // Concatenar os dois recibos em um único buffer para garantir impressão completa em lote único via USB
-    const combinedReceipt = new Uint8Array(kitchenReceipt.length + dispatchReceipt.length);
-    combinedReceipt.set(kitchenReceipt);
-    combinedReceipt.set(dispatchReceipt, kitchenReceipt.length);
-    
-    await device.transferOut(outEndpoint.endpointNumber, combinedReceipt);
+    await device.transferOut(outEndpoint.endpointNumber, dispatchReceipt);
     
     return true;
   } catch (err) {

@@ -40,6 +40,12 @@ const STATUS_INDICATOR = {
   'Cancelado': 'bg-red-500'
 };
 
+interface PrintJob {
+  id: string;
+  order: Order;
+  type: 'kitchen' | 'dispatch';
+}
+
 export function AdminOrders() {
   const { orders, loading, updateOrderStatus, markOrderAsPrinted } = useOrders();
   const { config, setConfig } = useStore();
@@ -74,8 +80,8 @@ export function AdminOrders() {
   );
   
   const printRef = useRef<HTMLDivElement>(null);
-  const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
-  const [printQueue, setPrintQueue] = useState<Order[]>([]);
+  const [printingOrder, setPrintingOrder] = useState<PrintJob | null>(null);
+  const [printQueue, setPrintQueue] = useState<PrintJob[]>([]);
 
   const persistPrintedOrders = () => {
     try {
@@ -324,9 +330,19 @@ export function AdminOrders() {
     }
 
     // Check if the order is already in the queue to prevent duplicates
-    if (!printQueue.some(o => o.id === order.id)) {
-      setPrintQueue(prev => [...prev, order]);
-    }
+    setPrintQueue(prev => {
+      const kitchenJobId = `${order.id}-kitchen`;
+      const dispatchJobId = `${order.id}-dispatch`;
+      
+      const newJobs: PrintJob[] = [];
+      if (!prev.some(j => j.id === kitchenJobId)) {
+        newJobs.push({ id: kitchenJobId, order, type: 'kitchen' });
+      }
+      if (!prev.some(j => j.id === dispatchJobId)) {
+        newJobs.push({ id: dispatchJobId, order, type: 'dispatch' });
+      }
+      return [...prev, ...newJobs];
+    });
     
     if (order.id && !order.hasBeenPrinted) {
       markOrderAsPrinted(order.id);
@@ -773,7 +789,7 @@ export function AdminOrders() {
               
               <button
                  onClick={() => {
-                   printQueue.forEach(o => o.id && printedOrdersRef.current.add(o.id));
+                   printQueue.forEach(job => job.order.id && printedOrdersRef.current.add(job.order.id));
                    persistPrintedOrders();
                    setPrintQueue([]);
                    setPrintingOrder(null);
@@ -799,31 +815,31 @@ export function AdminOrders() {
               {printingOrder && (
                 <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between animate-pulse">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-bold tracking-widest uppercase text-blue-500 mb-1">Imprimindo Agora</span>
-                    <span className="font-bold text-gray-900">{printingOrder.customerName} - Pedido #{printingOrder.id?.substring(0, 6) || 'N/A'}</span>
-                    <span className="text-[10px] text-gray-500 mt-0.5">{new Date(printingOrder.createdAt).toLocaleString()}</span>
+                    <span className="text-[10px] font-bold tracking-widest uppercase text-blue-500 mb-1">
+                      Imprimindo Agora ({printingOrder.type === 'kitchen' ? 'Via Cozinha' : 'Via Entrega'})
+                    </span>
+                    <span className="font-bold text-gray-900">{printingOrder.order.customerName} - Pedido #{printingOrder.order.id?.substring(0, 6) || 'N/A'}</span>
+                    <span className="text-[10px] text-gray-500 mt-0.5">{new Date(printingOrder.order.createdAt).toLocaleString()}</span>
                   </div>
                   <Printer className="w-6 h-6 text-blue-500 animate-bounce" />
                 </div>
               )}
-              {printQueue.slice(printingOrder ? 1 : 0).map((order, i) => (
-                <div key={order.id || i} className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex items-center justify-between flex-wrap gap-4">
+              {printQueue.slice(printingOrder ? 1 : 0).map((job, i) => (
+                <div key={job.id || i} className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex items-center justify-between flex-wrap gap-4">
                   <div className="flex flex-col">
                     <span className="text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-1">
-                       Posição #{printingOrder ? i + 2 : i + 1}
+                       Posição #{printingOrder ? i + 2 : i + 1} - {job.type === 'kitchen' ? 'Via Cozinha' : 'Via Entrega'}
                     </span>
-                    <span className="font-bold text-gray-900">{order.customerName} - Pedido #{order.id?.substring(0, 6) || 'N/A'}</span>
-                    <span className="text-[10px] text-gray-500 mt-0.5">{new Date(order.createdAt).toLocaleString()}</span>
+                    <span className="font-bold text-gray-900">{job.order.customerName} - Pedido #{job.order.id?.substring(0, 6) || 'N/A'}</span>
+                    <span className="text-[10px] text-gray-500 mt-0.5">{new Date(job.order.createdAt).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-bold text-gray-500 bg-white px-3 py-1.5 rounded-lg border border-gray-200">
-                      {formatCurrency(order.total)}
+                      {formatCurrency(job.order.total)}
                     </span>
                     <button 
                       onClick={() => {
-                         setPrintQueue(prev => prev.filter(o => o.id !== order.id));
-                         printedOrdersRef.current.add(order.id!);
-                         persistPrintedOrders();
+                         setPrintQueue(prev => prev.filter(j => j.id !== job.id));
                          notify.success('Removido da fila de impressão');
                       }}
                       className="p-1.5 bg-red-50 text-red-500 hover:bg-red-100 rounded-lg transition-colors cursor-pointer ml-2 border border-red-100"
@@ -881,7 +897,7 @@ export function AdminOrders() {
 
       {/* Hidden Print Component */}
       <div className="absolute overflow-hidden w-0 h-0 top-0 left-0 pointer-events-none opacity-0">
-        {printingOrder && <ReceiptPrint ref={printRef} order={printingOrder} />}
+        {printingOrder && <ReceiptPrint ref={printRef} order={printingOrder.order} type={printingOrder.type} />}
       </div>
     </div>
   );

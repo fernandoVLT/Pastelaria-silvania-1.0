@@ -4,9 +4,10 @@ import { formatCurrency } from '../utils/formatCurrency';
 
 interface ReceiptPrintProps {
   order: Order | null;
+  type?: 'kitchen' | 'dispatch' | 'all';
 }
 
-export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ order }, ref) => {
+export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ order, type = 'all' }, ref) => {
   if (!order) return null;
 
   const renderVia = (type: 'kitchen' | 'dispatch') => (
@@ -97,18 +98,30 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
         {`
           @media print {
             body { margin: 0; padding: 0; background: #fff !important; }
-            .receipt-container { width: 100% !important; max-width: 80mm !important; margin: 0 auto; }
-            .page-break { page-break-after: always; break-after: page; }
+            .receipt-container { width: 100% !important; max-width: 80mm !important; margin: 0 auto; display: block !important; }
+            .receipt-via { display: block !important; page-break-inside: avoid; break-inside: avoid; }
+            .page-break { 
+              display: block !important;
+              page-break-after: always !important; 
+              break-after: page !important; 
+              clear: both;
+            }
           }
           .receipt-container * { box-sizing: border-box; }
         `}
       </style>
-      <div className="page-break">
-        {renderVia('kitchen')}
-      </div>
-      <div>
-        {renderVia('dispatch')}
-      </div>
+      {type === 'kitchen' && renderVia('kitchen')}
+      {type === 'dispatch' && renderVia('dispatch')}
+      {type === 'all' && (
+        <>
+          <div className="page-break">
+            {renderVia('kitchen')}
+          </div>
+          <div>
+            {renderVia('dispatch')}
+          </div>
+        </>
+      )}
     </div>
   );
 });
