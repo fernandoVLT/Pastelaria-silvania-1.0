@@ -35,15 +35,14 @@ class EscPosEncoder {
     // Feed 3 clean lines to move the printed text past the thermal print head to the cutting blade position.
     this.buffer.push(0x0a, 0x0a, 0x0a);
     
-    // Clean, high-compatibility cut commands targeting the two major thermal printer command families:
-    // 1. GS V 66 0 (0x1D, 0x56, 0x42, 0x00): The universal standard ESC/POS command for auto-feed and partial cut (Elgin i9, Xprinter, Epson, Daruma)
-    this.buffer.push(0x1d, 0x56, 0x42, 0x00);
-    
-    // 2. ESC m (0x1B, 0x6D): The classic partial cut fallback command (Bematech MP-4200, older Elgin models, generic thermal printers)
-    this.buffer.push(0x1b, 0x6d);
-    
-    // 3. ESC w (0x1B, 0x77): Native Bematech cut command fallback
-    this.buffer.push(0x1b, 0x77);
+    // Universal set of cut commands sent back-to-back to support all families of thermal printers:
+    this.buffer.push(0x1d, 0x56, 0x01);       // 1. GS V 1 (Standard ESC/POS partial cut)
+    this.buffer.push(0x1d, 0x56, 0x42, 0x00); // 2. GS V 66 0 (Standard ESC/POS feed and partial cut)
+    this.buffer.push(0x1d, 0x56, 0x00);       // 3. GS V 0 (Standard ESC/POS full cut)
+    this.buffer.push(0x1d, 0x56, 0x41, 0x00); // 4. GS V 65 0 (Standard ESC/POS feed and full cut)
+    this.buffer.push(0x1b, 0x6d);             // 5. ESC m (Epson/Elgin/Xprinter partial cut)
+    this.buffer.push(0x1b, 0x69);             // 6. ESC i (Epson/Elgin/Xprinter full cut)
+    this.buffer.push(0x1b, 0x77);             // 7. ESC w (Bematech native cut fallback)
   }
   encode() {
     return new Uint8Array(this.buffer);

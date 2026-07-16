@@ -12,16 +12,16 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
 
   const renderVia = (type: 'kitchen' | 'dispatch') => (
     <div className="receipt-via">
-      <div className="receipt-header" style={{ textAlign: 'center', marginBottom: '2px' }}>
-        <h2 style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 1px' }}>
+      <div className="receipt-header" style={{ textAlign: 'center', marginBottom: '4px' }}>
+        <h2 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 2px' }}>
           Pastelaria da Silvânia
         </h2>
-        <div style={{ fontSize: '8px', fontWeight: 'bold', border: '1px solid #000', display: 'inline-block', padding: '0px 3px', textTransform: 'uppercase', lineHeight: '1.1' }}>
+        <div style={{ fontSize: '10px', fontWeight: 'bold', border: '1px solid #000', display: 'inline-block', padding: '1px 4px', textTransform: 'uppercase', lineHeight: '1.1' }}>
           VIA {type === 'kitchen' ? 'COZINHA' : 'MOTOBOY / ENTREGA'}
         </div>
       </div>
       
-      <div className="receipt-details text-[9.5px] space-y-0.5 mb-1 border-y border-dashed border-black py-0.5">
+      <div className="receipt-details text-[11px] space-y-0.5 mb-1.5 border-y border-dashed border-black py-1">
         <div className="flex justify-between">
           <span><strong>Pedido:</strong> #{order.id?.substring(0,6).toUpperCase()}</span>
           <span>{new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
@@ -30,12 +30,12 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
         <div><strong>Cliente:</strong> {order.customerName}</div>
         {order.customerPhone && <div><strong>Tel:</strong> {order.customerPhone}</div>}
         <div><strong>Tipo:</strong> {order.orderType}</div>
-        {order.observation && <div className="mt-0.5 font-bold border border-black p-0.5 text-[9px] bg-gray-50">OBS: {order.observation}</div>}
+        {order.observation && <div className="mt-1 font-bold border border-black p-1 text-[10px] bg-gray-50">OBS: {order.observation}</div>}
       </div>
 
-      <div className="receipt-items mb-1 border-b border-dashed border-black pb-0.5">
+      <div className="receipt-items mb-1.5 border-b border-dashed border-black pb-1">
         {order.items.map((item, idx) => (
-          <div key={idx} className="flex flex-col text-[9.5px] mb-0.5 leading-tight">
+          <div key={idx} className="flex flex-col text-[11px] mb-1 leading-tight">
             <div className="flex justify-between items-start">
               <div style={{ flex: 1, paddingRight: '5px' }}>
                 <strong>{item.quantity}x</strong> {item.productName}
@@ -43,7 +43,7 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
               {type === 'dispatch' && <div>{formatCurrency(item.price * item.quantity)}</div>}
             </div>
             {item.category && (
-              <div style={{ paddingLeft: '12px', fontSize: '8px', color: '#333', fontWeight: 'bold' }}>
+              <div style={{ paddingLeft: '14px', fontSize: '9px', color: '#333', fontWeight: 'bold' }}>
                 [{item.category}]
               </div>
             )}
@@ -52,7 +52,7 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
       </div>
 
       {type === 'dispatch' && (
-         <div className="receipt-totals text-[9.5px] mb-1 border-b border-dashed border-black pb-0.5 space-y-0.5">
+         <div className="receipt-totals text-[11px] mb-1.5 border-b border-dashed border-black pb-1 space-y-0.5">
            <div className="flex justify-between">
              <span>Subtotal:</span>
              <span>{formatCurrency(order.subtotal)}</span>
@@ -63,7 +63,7 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
                <span>{formatCurrency(order.deliveryFee)}</span>
              </div>
            )}
-           <div className="flex justify-between font-bold text-[11px]">
+           <div className="flex justify-between font-bold text-[12px]">
              <span>Total:</span>
              <span>{formatCurrency(order.total)}</span>
            </div>
@@ -71,22 +71,22 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
       )}
 
       {type === 'dispatch' && order.orderType === 'Delivery' && order.address && (
-         <div className="receipt-address text-[9.5px] mb-1 border-b border-dashed border-black pb-0.5">
-           <div className="font-bold mb-0.5 uppercase text-[8px]">Endereço de Entrega:</div>
+         <div className="receipt-address text-[11px] mb-1.5 border-b border-dashed border-black pb-1">
+           <div className="font-bold mb-0.5 uppercase text-[9px]">Endereço de Entrega:</div>
            <div>{order.address.street}, {order.address.number}</div>
            <div>{order.address.neighborhood}</div>
-           {order.address.complement && <div className="text-[8px] italic">({order.address.complement})</div>}
+           {order.address.complement && <div className="text-[9.5px] italic">({order.address.complement})</div>}
          </div>
       )}
 
       {type === 'dispatch' && order.orderType === 'Delivery' && order.paymentMethod && (
-         <div className="receipt-payment text-[9.5px] mb-0.5">
+         <div className="receipt-payment text-[11px] mb-0.5">
            <strong>Pagamento:</strong> {order.paymentMethod}
          </div>
       )}
 
       {order.scheduledDate && order.scheduledTime && (
-         <div className="receipt-schedule text-[8px] mt-0.5 bg-gray-50 p-0.5 text-center font-bold border border-black border-dashed">
+         <div className="receipt-schedule text-[9px] mt-1 bg-gray-50 p-1 text-center font-bold border border-black border-dashed">
             AGENDADO: {order.scheduledDate.split('-').reverse().join('/')} às {order.scheduledTime}
          </div>
       )}
@@ -94,7 +94,7 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
   );
 
   return (
-    <div ref={ref} className="receipt-container" style={{ padding: '0', width: '250px', fontFamily: 'monospace', color: '#000', backgroundColor: '#fff', fontSize: '10px', lineHeight: '1.2' }}>
+    <div ref={ref} className="receipt-container" style={{ padding: '0', width: '280px', fontFamily: 'monospace', color: '#000', backgroundColor: '#fff', fontSize: '11px', lineHeight: '1.2' }}>
       <style>
         {`
           @media print {

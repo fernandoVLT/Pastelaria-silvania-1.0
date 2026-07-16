@@ -77,6 +77,8 @@ export function AdminOrders() {
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
   const [printQueue, setPrintQueue] = useState<Order[]>([]);
   const [isPrinting, setIsPrinting] = useState(false);
+  const printPhaseRef = useRef<'idle' | 'kitchen' | 'dispatch'>('idle');
+  const [printType, setPrintType] = useState<'kitchen' | 'dispatch' | 'all'>('kitchen');
 
   const persistPrintedOrders = () => {
     try {
@@ -90,13 +92,21 @@ export function AdminOrders() {
   const executePrint = useReactToPrint({ 
     contentRef: printRef,
     onAfterPrint: () => {
-      setPrintingOrder(null);
-      setIsPrinting(false);
-      setPrintQueue(prev => prev.slice(1));
-      notify.success('Impressão concluída.');
+      if (printPhaseRef.current === 'kitchen') {
+        printPhaseRef.current = 'dispatch';
+        setPrintType('dispatch');
+        notify.success('Cozinha impressa! Preparando via do Motoboy...');
+      } else if (printPhaseRef.current === 'dispatch') {
+        printPhaseRef.current = 'idle';
+        setPrintingOrder(null);
+        setIsPrinting(false);
+        setPrintQueue(prev => prev.slice(1));
+        notify.success('Impressão concluída.');
+      }
     },
     onPrintError: () => {
       notify.error('Erro na impressão. Tente novamente.');
+      printPhaseRef.current = 'idle';
       setPrintingOrder(null);
       setIsPrinting(false);
       setPrintQueue(prev => prev.slice(1));
@@ -128,14 +138,22 @@ export function AdminOrders() {
       }
 
       // Fallback/Standard browser printing
+      printPhaseRef.current = 'kitchen';
+      setPrintType('kitchen');
       setPrintingOrder(nextOrder);
-      setTimeout(() => {
-        executePrint();
-      }, 150); // Shorter delay for instant browser print trigger
     };
 
     processQueue();
-  }, [printQueue, isPrinting, config.printConfig?.usbPrinter, executePrint]);
+  }, [printQueue, isPrinting, config.printConfig?.usbPrinter]);
+
+  useEffect(() => {
+    if (printingOrder && printPhaseRef.current !== 'idle') {
+      const timer = setTimeout(() => {
+        executePrint();
+      }, 350); // Small delay to let component render the correct printType
+      return () => clearTimeout(timer);
+    }
+  }, [printingOrder, printType, executePrint]);
 
   useEffect(() => {
     // Only process when orders are loaded
@@ -897,7 +915,7 @@ export function AdminOrders() {
 
       {/* Hidden Print Component */}
       <div className="absolute overflow-hidden w-0 h-0 top-0 left-0 pointer-events-none opacity-0">
-        {printingOrder && <ReceiptPrint ref={printRef} order={printingOrder} type="all" />}
+        {printingOrder && <ReceiptPrint ref={printRef} order={printingOrder} type={printType} />}
       </div>
     </div>
   );
