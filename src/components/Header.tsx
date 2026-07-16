@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function Header({ cartItemCount, onOpenMobileCart, searchQuery, setSearchQuery, showFavorites, setShowFavorites, onOpenCustomerOrders }: Props) {
-  const { config } = useStore();
+  const { config, computedIsOpen } = useStore();
   const initials = config.logoText.substring(0, 2).toUpperCase();
 
   return (
@@ -29,7 +29,18 @@ export function Header({ cartItemCount, onOpenMobileCart, searchQuery, setSearch
             <div className="absolute inset-0 bg-black/10 opacity-0 active:opacity-100 transition-opacity"></div>
           </div>
           <div className="hidden md:flex flex-col justify-center">
-            <span className="font-display text-2xl tracking-wide pt-1 truncate max-w-[250px]">{config.logoText}</span>
+            <span className="font-display text-2xl tracking-wide pt-1 truncate max-w-[250px] flex items-center gap-2">
+              {config.logoText}
+              {computedIsOpen ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500 text-[10px] font-bold text-white uppercase tracking-widest shadow-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span> Aberto
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-600 border border-white/20 text-[10px] font-bold text-white uppercase tracking-widest shadow-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white"></span> Fechado
+                </span>
+              )}
+            </span>
             <span className="text-[10px] text-white/80 font-bold uppercase tracking-widest">{config.openingHours} | {config.whatsappNumber}</span>
           </div>
         </div>

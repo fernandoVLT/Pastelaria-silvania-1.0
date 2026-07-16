@@ -1,4 +1,4 @@
-import { X, Plus, Edit2, Trash2, Save, Image as ImageIcon, BarChart3, Check, Store, Printer } from 'lucide-react';
+import { X, Plus, Edit2, Trash2, Save, Image as ImageIcon, BarChart3, Check, Store, Printer, Eye, EyeOff, Search } from 'lucide-react';
 import React, { useState } from 'react';
 import { notify } from './NotificationOverlay';
 import { useStore } from '../contexts/StoreContext';
@@ -18,6 +18,7 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [isEnteringNewCategory, setIsEnteringNewCategory] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
 
   const handleSaveConfig = () => {
     setConfig(formConfig);
@@ -411,25 +412,91 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                     </div>
                     
                     {formConfig.autoOpenClose && (
-                      <div className="grid grid-cols-2 gap-4 mt-2">
-                        <div>
-                          <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Horário de Abertura</label>
-                          <input 
-                            type="time" 
-                            value={formConfig.openTime || ''} 
-                            onChange={e => setFormConfig({...formConfig, openTime: e.target.value})}
-                            className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Horário de Fechamento</label>
-                          <input 
-                            type="time" 
-                            value={formConfig.closeTime || ''} 
-                            onChange={e => setFormConfig({...formConfig, closeTime: e.target.value})}
-                            className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
-                          />
-                        </div>
+                      <div className="mt-4 flex flex-col gap-3">
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-1">Configuração de Horários por Dia (Fechado fixo às Segundas)</label>
+                        {[0,1,2,3,4,5,6].map(day => {
+                          const dayNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+                          const schedule = formConfig.businessHours?.[day] || { isOpen: false, slots: [] };
+                          return (
+                            <div key={day} className="flex flex-col gap-2 p-3 bg-white border border-gray-100 rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={schedule.isOpen}
+                                    onChange={e => {
+                                      const newConfig = { ...formConfig };
+                                      if (!newConfig.businessHours) newConfig.businessHours = {};
+                                      newConfig.businessHours[day] = { ...schedule, isOpen: e.target.checked };
+                                      setFormConfig(newConfig);
+                                    }}
+                                    disabled={day === 1} // Segunda fixo
+                                    className="w-4 h-4 accent-brand-red cursor-pointer"
+                                  />
+                                  <span className="text-sm font-bold text-gray-800">{dayNames[day]}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  disabled={!schedule.isOpen || day === 1}
+                                  onClick={() => {
+                                    const newConfig = { ...formConfig };
+                                    if (!newConfig.businessHours) newConfig.businessHours = {};
+                                    newConfig.businessHours[day] = { 
+                                      ...schedule, 
+                                      slots: [...(schedule.slots || []), { open: '18:00', close: '22:00' }] 
+                                    };
+                                    setFormConfig(newConfig);
+                                  }}
+                                  className="text-brand-red font-bold text-xs flex items-center gap-1 disabled:opacity-50"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                  Adicionar
+                                </button>
+                              </div>
+                              {schedule.isOpen && schedule.slots && schedule.slots.map((slot, idx) => (
+                                <div key={idx} className="flex items-center gap-2 mt-1">
+                                  <input 
+                                    type="time" 
+                                    value={slot.open} 
+                                    onChange={e => {
+                                      const newConfig = { ...formConfig };
+                                      const newSlots = [...schedule.slots];
+                                      newSlots[idx].open = e.target.value;
+                                      newConfig.businessHours![day] = { ...schedule, slots: newSlots };
+                                      setFormConfig(newConfig);
+                                    }}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded p-1 text-xs text-gray-900 focus:outline-none"
+                                  />
+                                  <span className="text-xs text-gray-400">até</span>
+                                  <input 
+                                    type="time" 
+                                    value={slot.close} 
+                                    onChange={e => {
+                                      const newConfig = { ...formConfig };
+                                      const newSlots = [...schedule.slots];
+                                      newSlots[idx].close = e.target.value;
+                                      newConfig.businessHours![day] = { ...schedule, slots: newSlots };
+                                      setFormConfig(newConfig);
+                                    }}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded p-1 text-xs text-gray-900 focus:outline-none"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newConfig = { ...formConfig };
+                                      const newSlots = schedule.slots.filter((_, sIdx) => sIdx !== idx);
+                                      newConfig.businessHours![day] = { ...schedule, slots: newSlots };
+                                      setFormConfig(newConfig);
+                                    }}
+                                    className="text-gray-400 hover:text-red-500"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -566,35 +633,68 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                 </div>
 
                 {/* Formas de Pagamento */}
-                <div className="md:col-span-2">
-                  <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2 mt-4">Formas de Pagamento Habilitadas</label>
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 gap-4 grid grid-cols-2 md:grid-cols-3">
-                    {['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'].map((method) => {
-                      const enabledMethods = formConfig.enabledPaymentMethods || ['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'];
-                      const isEnabled = enabledMethods.includes(method);
-                      
-                      return (
-                        <label key={method} className="flex items-center gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={isEnabled}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              const currentMethods = [...enabledMethods];
-                              if (checked) {
-                                if (!currentMethods.includes(method)) currentMethods.push(method);
-                              } else {
-                                const index = currentMethods.indexOf(method);
-                                if (index > -1) currentMethods.splice(index, 1);
-                              }
-                              setFormConfig({ ...formConfig, enabledPaymentMethods: currentMethods });
-                            }}
-                            className="w-5 h-5 rounded border-gray-300 text-brand-red focus:ring-brand-red cursor-pointer"
-                          />
-                          <span className="text-sm font-bold text-gray-900">{method}</span>
-                        </label>
-                      );
-                    })}
+                <div className="md:col-span-2 mt-4 space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Formas de Pagamento (Entrega)</label>
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 gap-4 grid grid-cols-2 md:grid-cols-3">
+                      {['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'].map((method) => {
+                        const enabledMethods = formConfig.enabledPaymentMethodsDelivery || formConfig.enabledPaymentMethods || ['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'];
+                        const isEnabled = enabledMethods.includes(method);
+                        
+                        return (
+                          <label key={method} className="flex items-center gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isEnabled}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                const currentMethods = [...enabledMethods];
+                                if (checked) {
+                                  if (!currentMethods.includes(method)) currentMethods.push(method);
+                                } else {
+                                  const index = currentMethods.indexOf(method);
+                                  if (index > -1) currentMethods.splice(index, 1);
+                                }
+                                setFormConfig({ ...formConfig, enabledPaymentMethodsDelivery: currentMethods });
+                              }}
+                              className="w-5 h-5 rounded border-gray-300 text-brand-red focus:ring-brand-red cursor-pointer"
+                            />
+                            <span className="text-sm font-bold text-gray-900">{method}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Formas de Pagamento (Retirada)</label>
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 gap-4 grid grid-cols-2 md:grid-cols-3">
+                      {['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'].map((method) => {
+                        const enabledMethods = formConfig.enabledPaymentMethodsPickup || formConfig.enabledPaymentMethods || ['Pix', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'];
+                        const isEnabled = enabledMethods.includes(method);
+                        
+                        return (
+                          <label key={method} className="flex items-center gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isEnabled}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                const currentMethods = [...enabledMethods];
+                                if (checked) {
+                                  if (!currentMethods.includes(method)) currentMethods.push(method);
+                                } else {
+                                  const index = currentMethods.indexOf(method);
+                                  if (index > -1) currentMethods.splice(index, 1);
+                                }
+                                setFormConfig({ ...formConfig, enabledPaymentMethodsPickup: currentMethods });
+                              }}
+                              className="w-5 h-5 rounded border-gray-300 text-brand-red focus:ring-brand-red cursor-pointer"
+                            />
+                            <span className="text-sm font-bold text-gray-900">{method}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -946,38 +1046,54 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
 
           {activeTab === 'products' && !editingProduct && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <button
-                  onClick={async () => {
-                    if (window.confirm("Isso irá adicionar os itens padrão do cardápio que podem estar faltando. Continuar?")) {
-                       try {
-                         const initProductsOrig = (await import('../data/products')).products;
-                         for (const prod of initProductsOrig) {
-                           if (!products.find(p => p.name === prod.name)) {
-                             await addProduct(prod);
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder="Buscar produtos..."
+                    className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={async () => {
+                      if (window.confirm("Isso irá adicionar os itens padrão do cardápio que podem estar faltando. Continuar?")) { 
+                         try {
+                           const initProductsOrig = (await import('../data/products')).products;
+                           for (const prod of initProductsOrig) {
+                             if (!products.find(p => p.name === prod.name)) {
+                               await addProduct(prod);
+                             }
                            }
+                           alert("Cardápio base sincronizado!");
+                         } catch (e) {
+                           console.error(e);
                          }
-                         alert("Cardápio base sincronizado!");
-                       } catch (e) {
-                         console.error(e);
-                       }
-                    }
-                  }}
-                  className="text-xs font-bold text-gray-500 hover:text-brand-red transition-colors underline"
-                >
-                  Sincronizar Cardápio C/ PDF
-                </button>
-                <button 
-                  onClick={startAddProduct}
-                  className="px-6 py-3 bg-brand-red text-white text-[10px] uppercase font-black tracking-widest rounded-xl hover:bg-brand-red-dark transition-colors flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Adicionar Produto
-                </button>
+                      }
+                    }}
+                    className="text-xs font-bold text-gray-500 hover:text-brand-red transition-colors underline"
+                  >
+                    Sincronizar
+                  </button>
+                  <button 
+                    onClick={startAddProduct}
+                    className="px-6 py-3 bg-brand-red text-white text-[10px] uppercase font-black tracking-widest rounded-xl hover:bg-brand-red-dark transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Adicionar Produto
+                  </button>
+                </div>
               </div>
 
               {config.categories.map(category => {
-                const categoryProducts = products.filter(p => p.category === category);
+                const categoryProducts = products.filter(p => {
+                  const matchesCategory = p.category === category;
+                  const matchesSearch = !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()) || (p.description && p.description.toLowerCase().includes(productSearch.toLowerCase()));
+                  return matchesCategory && matchesSearch;
+                });
                 if (config.productDisplayOrder === 'alphabetical') {
                   categoryProducts.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
                 } else {
@@ -998,6 +1114,7 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="border-b border-gray-100 text-[10px] uppercase tracking-widest text-gray-500">
+                          <th className="p-4 font-bold w-16 text-center">Status</th>
                           <th className="p-4 font-bold">Produto</th>
                           <th className="p-4 font-bold">Preço</th>
                           <th className="p-4 font-bold">Ações</th>
@@ -1006,6 +1123,17 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                       <tbody>
                         {categoryProducts.map(p => (
                           <tr key={p.id} className="border-b last:border-b-0 border-gray-50 hover:bg-gray-50 transition-colors">
+                            <td className="p-4 align-middle">
+                              <button
+                                onClick={() => {
+                                  updateProduct({ ...p, isAvailable: p.isAvailable === false ? true : false });
+                                }}
+                                title={p.isAvailable === false ? "Produto Indisponível (clique para ativar)" : "Produto Disponível (clique para desativar)"}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${p.isAvailable === false ? 'bg-gray-300' : 'bg-green-500'}`}
+                              >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${p.isAvailable === false ? 'translate-x-1' : 'translate-x-6'}`} />
+                              </button>
+                            </td>
                             <td className="p-4">
                               <div className="flex items-center gap-3">
                                 {p.imageUrl ? (
@@ -1016,7 +1144,12 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                                   </div>
                                 )}
                                 <div>
-                                  <div className="font-bold text-gray-900 text-sm">{p.name}</div>
+                                  <div className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                                    {p.name}
+                                    {p.isAvailable === false && (
+                                      <span className="bg-red-100 text-red-600 text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded">Indisponível</span>
+                                    )}
+                                  </div>
                                   {p.description && <div className="text-[10px] text-gray-500 line-clamp-1">{p.description}</div>}
                                 </div>
                               </div>
@@ -1051,17 +1184,18 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                 );
               })}
               
-              {products.filter(p => !config.categories.includes(p.category)).length > 0 && (
+              {products.filter(p => !config.categories.includes(p.category) && (!productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()) || (p.description && p.description.toLowerCase().includes(productSearch.toLowerCase())))).length > 0 && (
                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-6">
                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                    <h3 className="font-bold text-gray-700 text-xs uppercase tracking-widest">Outras Categorias</h3>
                    <span className="text-[10px] text-gray-400 font-bold bg-white px-2 py-1 rounded border border-gray-200">
-                     {products.filter(p => !config.categories.includes(p.category)).length} itens
+                     {products.filter(p => !config.categories.includes(p.category) && (!productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()) || (p.description && p.description.toLowerCase().includes(productSearch.toLowerCase())))).length} itens
                    </span>
                  </div>
                  <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="border-b border-gray-100 text-[10px] uppercase tracking-widest text-gray-500">
+                          <th className="p-4 font-bold w-16 text-center">Status</th>
                           <th className="p-4 font-bold">Produto</th>
                           <th className="p-4 font-bold">Categoria</th>
                           <th className="p-4 font-bold">Preço</th>
@@ -1069,8 +1203,19 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                         </tr>
                       </thead>
                       <tbody>
-                        {products.filter(p => !config.categories.includes(p.category)).map(p => (
+                        {products.filter(p => !config.categories.includes(p.category) && (!productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()) || (p.description && p.description.toLowerCase().includes(productSearch.toLowerCase())))).map(p => (
                           <tr key={p.id} className="border-b last:border-b-0 border-gray-50 hover:bg-gray-50 transition-colors">
+                            <td className="p-4 align-middle">
+                              <button
+                                onClick={() => {
+                                  updateProduct({ ...p, isAvailable: p.isAvailable === false ? true : false });
+                                }}
+                                title={p.isAvailable === false ? "Produto Indisponível (clique para ativar)" : "Produto Disponível (clique para desativar)"}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${p.isAvailable === false ? 'bg-gray-300' : 'bg-green-500'}`}
+                              >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${p.isAvailable === false ? 'translate-x-1' : 'translate-x-6'}`} />
+                              </button>
+                            </td>
                             <td className="p-4">
                               <div className="flex items-center gap-3">
                                 {p.imageUrl ? (
@@ -1081,7 +1226,12 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                                   </div>
                                 )}
                                 <div>
-                                  <div className="font-bold text-gray-900 text-sm">{p.name}</div>
+                                  <div className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                                    {p.name}
+                                    {p.isAvailable === false && (
+                                      <span className="bg-red-100 text-red-600 text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded">Indisponível</span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </td>
@@ -1248,6 +1398,20 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                   <div>
                     <label htmlFor="isBestSeller" className="block text-sm font-bold text-gray-900 cursor-pointer mb-0.5">Destaque (Mais Vendido)</label>
                     <p className="text-[10px] text-gray-500 tracking-wide">Forçar este produto a aparecer na lista de mais vendidos na página inicial.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4 mt-2">
+                  <input
+                    type="checkbox"
+                    id="isAvailable"
+                    checked={editingProduct.isAvailable !== false}
+                    onChange={e => setEditingProduct({...editingProduct, isAvailable: e.target.checked})}
+                    className="w-5 h-5 accent-brand-red cursor-pointer"
+                  />
+                  <div>
+                    <label htmlFor="isAvailable" className="block text-sm font-bold text-gray-900 cursor-pointer mb-0.5">Disponível para Venda</label>
+                    <p className="text-[10px] text-gray-500 tracking-wide">Se desmarcado, o produto aparecerá como "Indisponível" para os clientes.</p>
                   </div>
                 </div>
                 <button 

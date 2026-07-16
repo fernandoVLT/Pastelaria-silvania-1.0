@@ -444,7 +444,15 @@ export function AdminOrders() {
                 </div>
                 <div className="text-right">
                   <div className="font-bold text-brand-red text-xs">{formatCurrency(order.total)}</div>
-                  <div className="text-[8px] font-bold uppercase tracking-widest text-gray-400">{order.paymentMethod}</div>
+                  <div className="text-[8px] font-bold uppercase tracking-widest text-gray-400">
+                    {order.paymentMethod}
+                    {order.paymentMethod === 'Dinheiro' && order.needsChange && order.changeFor && (
+                      <span className="block text-brand-red mt-0.5">Troco para {formatCurrency(order.changeFor)}</span>
+                    )}
+                    {order.paymentMethod === 'Dinheiro' && !order.needsChange && (
+                      <span className="block text-green-600 mt-0.5">Sem Troco</span>
+                    )}
+                  </div>
                 </div>
               </div>
 

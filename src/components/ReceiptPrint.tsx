@@ -11,17 +11,17 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
   if (!order) return null;
 
   const renderVia = (type: 'kitchen' | 'dispatch') => (
-    <div className="receipt-via">
+    <div className={`receipt-via ${type === 'kitchen' ? 'kitchen-via' : ''}`}>
       <div className="receipt-header" style={{ textAlign: 'center', marginBottom: '4px' }}>
-        <h2 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 2px' }}>
+        <h2 style={{ fontSize: type === 'kitchen' ? '18px' : '14px', fontWeight: 'bold', margin: '0 0 2px' }}>
           Pastelaria da Silvânia
         </h2>
-        <div style={{ fontSize: '10px', fontWeight: 'bold', border: '1px solid #000', display: 'inline-block', padding: '1px 4px', textTransform: 'uppercase', lineHeight: '1.1' }}>
+        <div style={{ fontSize: type === 'kitchen' ? '14px' : '10px', fontWeight: 'bold', border: '2px solid #000', display: 'inline-block', padding: '2px 6px', textTransform: 'uppercase', lineHeight: '1.1' }}>
           VIA {type === 'kitchen' ? 'COZINHA' : 'MOTOBOY / ENTREGA'}
         </div>
       </div>
       
-      <div className="receipt-details text-[11px] space-y-0.5 mb-1.5 border-y border-dashed border-black py-1">
+      <div className="receipt-details space-y-0.5 mb-1.5 border-y border-dashed border-black py-1" style={{ fontSize: type === 'kitchen' ? '14px' : '11px' }}>
         <div className="flex justify-between">
           <span><strong>Pedido:</strong> #{order.id?.substring(0,6).toUpperCase()}</span>
           <span>{new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
@@ -30,25 +30,36 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
         <div><strong>Cliente:</strong> {order.customerName}</div>
         {order.customerPhone && <div><strong>Tel:</strong> {order.customerPhone}</div>}
         <div><strong>Tipo:</strong> {order.orderType}</div>
-        {order.observation && <div className="mt-1 font-bold border border-black p-1 text-[10px] bg-gray-50">OBS: {order.observation}</div>}
+        {order.observation && <div className="mt-1 font-bold border border-black p-1 bg-gray-50 text-[12px] uppercase">OBS: {order.observation}</div>}
       </div>
 
       <div className="receipt-items mb-1.5 border-b border-dashed border-black pb-1">
-        {order.items.map((item, idx) => (
-          <div key={idx} className="flex flex-col text-[11px] mb-1 leading-tight">
-            <div className="flex justify-between items-start">
-              <div style={{ flex: 1, paddingRight: '5px' }}>
-                <strong>{item.quantity}x</strong> {item.productName}
+        {order.items.map((item, idx) => {
+          // Highlight sizes
+          const emphasizeSize = (text: string) => {
+            if (!text) return text;
+            const parts = text.split(/(pequeno|grande|médio|medio)/i);
+            return parts.map((part, i) => 
+              /^(pequeno|grande|médio|medio)$/i.test(part) ? <strong key={i} style={{ fontSize: type === 'kitchen' ? '1.2em' : '1em', textTransform: 'uppercase', textDecoration: 'underline' }}>{part}</strong> : part
+            );
+          };
+
+          return (
+            <div key={idx} className="flex flex-col mb-2 leading-tight" style={{ fontSize: type === 'kitchen' ? '16px' : '11px' }}>
+              <div className="flex justify-between items-start">
+                <div style={{ flex: 1, paddingRight: '5px' }}>
+                  <strong style={{ fontSize: type === 'kitchen' ? '1.1em' : '1em' }}>{item.quantity}x</strong> <span className="font-bold">{emphasizeSize(item.productName)}</span>
+                </div>
+                {type === 'dispatch' && <div>{formatCurrency(item.price * item.quantity)}</div>}
               </div>
-              {type === 'dispatch' && <div>{formatCurrency(item.price * item.quantity)}</div>}
+              {item.category && (
+                <div style={{ paddingLeft: '14px', fontSize: type === 'kitchen' ? '12px' : '9px', color: '#000', fontWeight: 'bold' }}>
+                  [{emphasizeSize(item.category)}]
+                </div>
+              )}
             </div>
-            {item.category && (
-              <div style={{ paddingLeft: '14px', fontSize: '9px', color: '#333', fontWeight: 'bold' }}>
-                [{item.category}]
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {type === 'dispatch' && (

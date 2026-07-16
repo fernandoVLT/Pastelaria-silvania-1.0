@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Product, Category, Review } from '../types';
+import { Product, Category, Review, BusinessHours, DaySchedule, TimeSlot } from '../types';
 import { products as initialProducts } from '../data/products';
 import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, writeBatch, increment, arrayUnion, addDoc, getDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -44,6 +44,7 @@ interface StoreConfig {
   facebookUrl?: string;
   isOpen: boolean;
   autoOpenClose?: boolean;
+  businessHours?: BusinessHours;
   openTime?: string;
   closeTime?: string;
   pixKey?: string;
@@ -79,6 +80,8 @@ interface StoreConfig {
     orderDelivered?: boolean;
   };
   enabledPaymentMethods?: string[];
+  enabledPaymentMethodsDelivery?: string[];
+  enabledPaymentMethodsPickup?: string[];
   minOrderValue?: number;
   orderSuccessMessage?: string;
   whatsappApiConfig?: {
@@ -129,7 +132,17 @@ const DEFAULT_CONFIG: StoreConfig = {
   adminPassword: 'admin',
   instagramUrl: '',
   facebookUrl: '',
-  isOpen: true,
+  isOpen: false,
+  autoOpenClose: true,
+  businessHours: {
+    0: { isOpen: true, slots: [{ open: '18:00', close: '22:00' }] }, // Domingo
+    1: { isOpen: false, slots: [] }, // Segunda
+    2: { isOpen: true, slots: [{ open: '18:00', close: '22:00' }] }, // Terça
+    3: { isOpen: true, slots: [{ open: '18:00', close: '22:00' }] }, // Quarta
+    4: { isOpen: true, slots: [{ open: '18:00', close: '22:00' }] }, // Quinta
+    5: { isOpen: true, slots: [{ open: '18:00', close: '22:00' }] }, // Sexta
+    6: { isOpen: true, slots: [{ open: '18:00', close: '22:00' }] }, // Sábado
+  },
   deliveryFee: 3.00,
   bbPixConfig: {
     enabled: false,
@@ -148,6 +161,8 @@ const DEFAULT_CONFIG: StoreConfig = {
   orderSuccessMessage: 'Seu pedido foi registrado! Caso o WhatsApp não tenha aberto automaticamente, clique no botão abaixo.',
   notifyOnCartStart: false,
   enabledPaymentMethods: ['Pix', 'Pix Manual', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'],
+  enabledPaymentMethodsDelivery: ['Pix', 'Pix Manual', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'],
+  enabledPaymentMethodsPickup: ['Pix', 'Pix Manual', 'Cartão de Crédito', 'Cartão de Débito', 'Vale Alimentação', 'Dinheiro'],
 };
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -160,21 +175,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const checkSchedule = () => {
-      let currentIsOpen = config.isOpen;
-      
-      if (config.autoOpenClose && config.openTime && config.closeTime) {
+      if (!config.autoOpenClose) {
+        setComputedIsOpen(config.isOpen);
+        return;
+      }
+
+      if (config.businessHours) {
         const now = new Date();
+        const day = now.getDay();
         const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
         
-        if (config.openTime <= config.closeTime) {
-          currentIsOpen = currentTime >= config.openTime && currentTime <= config.closeTime;
-        } else {
-          // Crosses midnight
-          currentIsOpen = currentTime >= config.openTime || currentTime <= config.closeTime;
+        const todaySchedule = config.businessHours[day];
+        if (!todaySchedule || !todaySchedule.isOpen || !todaySchedule.slots || todaySchedule.slots.length === 0) {
+          setComputedIsOpen(false);
+          return;
         }
+
+        const isOpenNow = todaySchedule.slots.some(slot => {
+          if (slot.open <= slot.close) {
+            return currentTime >= slot.open && currentTime <= slot.close;
+          } else {
+            // Crosses midnight
+            return currentTime >= slot.open || currentTime <= slot.close;
+          }
+        });
+
+        setComputedIsOpen(isOpenNow);
+      } else {
+        // Fallback to legacy config
+        let currentIsOpen = config.isOpen;
+        if (config.openTime && config.closeTime) {
+          const now = new Date();
+          const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+          if (config.openTime <= config.closeTime) {
+            currentIsOpen = currentTime >= config.openTime && currentTime <= config.closeTime;
+          } else {
+            currentIsOpen = currentTime >= config.openTime || currentTime <= config.closeTime;
+          }
+        }
+        setComputedIsOpen(currentIsOpen);
       }
-      
-      setComputedIsOpen(currentIsOpen);
     };
 
     checkSchedule();

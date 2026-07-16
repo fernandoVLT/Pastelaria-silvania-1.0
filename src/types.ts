@@ -1,3 +1,17 @@
+export interface TimeSlot {
+  open: string;
+  close: string;
+}
+
+export interface DaySchedule {
+  isOpen: boolean;
+  slots: TimeSlot[];
+}
+
+export interface BusinessHours {
+  [dayIndex: number]: DaySchedule; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+}
+
 export type Category = string;
 
 export interface Review {
@@ -18,6 +32,7 @@ export interface Product {
   reviews?: Review[];
   salesCount?: number;
   isBestSeller?: boolean;
+  isAvailable?: boolean;
   stock?: number;
   createdAt?: number;
 }
@@ -55,6 +70,8 @@ export interface Order {
     number: string;
   };
   paymentMethod: PaymentMethod;
+  needsChange?: boolean;
+  changeFor?: number;
   items: OrderItem[];
   subtotal: number;
   deliveryFee: number;

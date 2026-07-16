@@ -41,6 +41,8 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   const [street, setStreet] = useState('');
   const [addressNumber, setAddressNumber] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
+  const [needsChange, setNeedsChange] = useState<boolean>(false);
+  const [changeFor, setChangeFor] = useState<number | ''>('');
   const [isOrderSent, setIsOrderSent] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [wpUrl, setWpUrl] = useState('');
@@ -102,6 +104,13 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       notify.error('Preencha seu nome, WhatsApp e a forma de pagamento.');
       return;
     }
+    
+    if (paymentMethod === 'Dinheiro' && needsChange) {
+      if (!changeFor || Number(changeFor) <= finalTotal) {
+        notify.error('Informe um valor de troco válido, maior que o total do pedido.');
+        return;
+      }
+    }
 
     if (orderType === 'Delivery') {
       if (!street.trim() || !addressNumber.trim()) {
@@ -128,6 +137,8 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
         customerPhone: phone.trim(),
         orderType,
         paymentMethod,
+        needsChange: paymentMethod === 'Dinheiro' ? needsChange : undefined,
+        changeFor: paymentMethod === 'Dinheiro' && needsChange ? changeFor : undefined,
         items: orderItems,
         subtotal: itemsTotal,
         deliveryFee,
@@ -170,37 +181,44 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       const dateStr = now.toLocaleDateString('pt-BR');
       const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-      let wppMessage = `#### NOVO PEDIDO ####\n\n`;
-      wppMessage += `#️⃣   Nº pedido: ${shortOrderId}\n`;
-      wppMessage += `feito em ${dateStr} ${timeStr}\n\n`;
-      wppMessage += `👤   ${name.trim()}\n`;
-      wppMessage += `📞   ${phone.trim()}\n\n`;
+      let wppMessage = `🍔 *NOVO PEDIDO* 🍔\n\n`;
+      wppMessage += `*#️⃣ Pedido:* ${shortOrderId}\n`;
+      wppMessage += `*🕒 Feito em:* ${dateStr} às ${timeStr}\n\n`;
+      wppMessage += `*👤 Cliente:* ${name.trim()}\n`;
+      wppMessage += `*📞 Telefone:* ${phone.trim()}\n\n`;
       
       if (orderType === 'Delivery') {
-        wppMessage += `📍   Entrega em:\n     ${street.trim()}, ${addressNumber.trim()} - ${neighborhood}\n\n`;
+        wppMessage += `*🛵 Tipo:* Delivery\n`;
+        wppMessage += `*📍 Endereço:*\n${street.trim()}, ${addressNumber.trim()} - ${neighborhood}\n\n`;
       } else {
-        wppMessage += `📍   Retirar na loja\n\n`;
+        wppMessage += `*🏪 Tipo:* Retirada na Loja\n\n`;
       }
       
-      wppMessage += `------- ITENS DO PEDIDO -------\n\n`;
+      wppMessage += `*📋 ITENS DO PEDIDO*\n`;
+      wppMessage += `-------------------------------\n`;
       
       items.forEach(i => {
-        wppMessage += `*${i.quantity} x ${i.product.name}*\n`;
+        wppMessage += `*👉 ${i.quantity}x ${i.product.name}*\n`;
         if (i.product.category) {
-          wppMessage += `  Categoria: ${i.product.category}\n`;
+          wppMessage += `   _Categoria: ${i.product.category}_\n`;
         }
-        wppMessage += `💵 ${i.quantity} x ${formatCurrency(i.product.price)} = ${formatCurrency(i.quantity * i.product.price)}\n\n`;
+        wppMessage += `   💰 ${i.quantity} x ${formatCurrency(i.product.price)} = ${formatCurrency(i.quantity * i.product.price)}\n\n`;
       });
       
       wppMessage += `-------------------------------\n\n`;
-      wppMessage += `SUBTOTAL: ${formatCurrency(itemsTotal)}\n`;
+      wppMessage += `*💵 RESUMO FINANCEIRO*\n`;
+      wppMessage += `Subtotal: ${formatCurrency(itemsTotal)}\n`;
       if (orderType === 'Delivery') {
-        wppMessage += `*TAXA DE ENTREGA: ${formatCurrency(deliveryFee)}*\n`;
+        wppMessage += `🛵 Taxa de Entrega: ${formatCurrency(deliveryFee)}\n`;
       }
-      wppMessage += `*VALOR FINAL: ${formatCurrency(finalTotal)}*\n\n`;
+      wppMessage += `*✅ TOTAL: ${formatCurrency(finalTotal)}*\n\n`;
       
-      wppMessage += `PAGAMENTO\n`;
-      wppMessage += `*${paymentMethod}*: ${formatCurrency(finalTotal)}\n\n`;
+      wppMessage += `*💳 PAGAMENTO*\n`;
+      let paymentText = paymentMethod;
+      if (paymentMethod === 'Dinheiro') {
+        paymentText += needsChange ? ` (Troco para ${formatCurrency(Number(changeFor))})` : ' (Sem troco)';
+      }
+      wppMessage += `Forma: ${paymentText}\n\n`;
       wppMessage += `⏱️ *Tempo Estimado:* ${timeMessage}`;
 
       if (paymentMethod === 'Pix') {
@@ -443,7 +461,10 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
               
               <div className="grid grid-cols-2 gap-3 mb-6">
                 <button
-                  onClick={() => setOrderType('Delivery')}
+                  onClick={() => {
+                    setOrderType('Delivery');
+                    setPaymentMethod('');
+                  }}
                   className={`border-2 rounded-xl p-4 text-[10px] font-black tracking-widest uppercase transition-all flex flex-col items-center justify-center gap-2 text-center h-24 ${
                     orderType === 'Delivery' 
                       ? 'border-brand-red text-brand-red bg-red-50 shadow-sm ring-2 ring-brand-red/20' 
@@ -454,7 +475,10 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                   Entrega
                 </button>
                 <button
-                  onClick={() => setOrderType('Retirada')}
+                  onClick={() => {
+                    setOrderType('Retirada');
+                    setPaymentMethod('');
+                  }}
                   className={`border-2 rounded-xl p-4 text-[10px] font-black tracking-widest uppercase transition-all flex flex-col items-center justify-center gap-2 text-center h-24 ${
                     orderType === 'Retirada' 
                       ? 'border-brand-yellow text-yellow-700 bg-yellow-50 shadow-sm ring-2 ring-brand-yellow/20' 
@@ -526,7 +550,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
               <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-4">Forma de Pagamento *</label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {(config.enabledPaymentMethods || FALLBACK_PAYMENT_METHODS).map((method) => {
+                {(orderType === 'Delivery' ? (config.enabledPaymentMethodsDelivery || config.enabledPaymentMethods || FALLBACK_PAYMENT_METHODS) : (config.enabledPaymentMethodsPickup || config.enabledPaymentMethods || FALLBACK_PAYMENT_METHODS)).map((method) => {
                   const methodConfig = 
                     (method === 'Pix' || method === 'Pix Manual') ? { Icon: QrCode, color: 'text-teal-500', bg: 'bg-teal-50', border: 'border-teal-500' } :
                     method === 'Cartão de Crédito' ? { Icon: CreditCard, color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-500' } :
@@ -625,7 +649,40 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                     </div>
                   )}
                   
-                  {paymentMethod !== 'Pix' && paymentMethod !== 'Pix Manual' && (
+                  {paymentMethod === 'Dinheiro' && (
+                    <div className="flex flex-col items-center text-center w-full pb-4">
+                      <p className="text-xs text-gray-500 mb-4 font-medium">Precisa de troco?</p>
+                      <div className="flex gap-4 mb-4">
+                        <button
+                          type="button"
+                          onClick={() => setNeedsChange(true)}
+                          className={`px-6 py-2 rounded-xl text-xs font-bold border-2 transition-colors ${needsChange ? 'border-brand-red bg-red-50 text-brand-red' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                        >
+                          Sim
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNeedsChange(false)}
+                          className={`px-6 py-2 rounded-xl text-xs font-bold border-2 transition-colors ${!needsChange ? 'border-brand-red bg-red-50 text-brand-red' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}
+                        >
+                          Não
+                        </button>
+                      </div>
+                      {needsChange && (
+                        <div className="w-full relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">R$</span>
+                          <input
+                            type="number"
+                            value={changeFor}
+                            onChange={(e) => setChangeFor(e.target.value === '' ? '' : Number(e.target.value))}
+                            placeholder="Troco para quanto?"
+                            className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-red text-sm font-bold"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {paymentMethod !== 'Pix' && paymentMethod !== 'Pix Manual' && paymentMethod !== 'Dinheiro' && (
                     <div className="flex flex-col items-center text-center py-4">
                       <p className="text-xs text-gray-500 mb-6 font-medium">Lembre-se de preparar o pagamento na entrega/retirada.</p>
                       <div className="flex items-center gap-2 bg-gray-100 text-gray-600 px-6 py-3 rounded-full text-xs font-bold tracking-widest uppercase transition-colors shadow-sm">

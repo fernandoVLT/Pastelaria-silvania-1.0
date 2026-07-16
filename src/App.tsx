@@ -150,6 +150,8 @@ export default function App() {
 
   const sortedActiveProducts = useMemo(() => {
     const activeList = products.filter(p => {
+      if (p.isAvailable === false) return false;
+      
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesSearch = p.name.toLowerCase().includes(q) || (p.description && p.description.toLowerCase().includes(q));
@@ -187,6 +189,7 @@ export default function App() {
 
   const bestSellers = useMemo(() => {
     return [...products]
+      .filter(p => p.isAvailable !== false)
       .sort((a, b) => {
         if (a.isBestSeller && !b.isBestSeller) return -1;
         if (!a.isBestSeller && b.isBestSeller) return 1;
