@@ -228,13 +228,15 @@ export async function printDirectToUsb(order: Order, usbPrinterConfig?: { vendor
     await device.claimInterface(interfaceNumber);
     
     const kitchenReceipt = buildReceipt(order, 'kitchen');
-    await device.transferOut(outEndpoint.endpointNumber, kitchenReceipt);
-    
-    // Give 800ms to allow physical cutter to complete before sending next job
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
     const dispatchReceipt = buildReceipt(order, 'dispatch');
-    await device.transferOut(outEndpoint.endpointNumber, dispatchReceipt);
+    
+    // Concatenate both receipts into a single buffer so that USB transmission is instantaneous
+    // and both parts print back-to-back with hardware cut commands executed immediately by the printer.
+    const combinedReceipt = new Uint8Array(kitchenReceipt.length + dispatchReceipt.length);
+    combinedReceipt.set(kitchenReceipt);
+    combinedReceipt.set(dispatchReceipt, kitchenReceipt.length);
+    
+    await device.transferOut(outEndpoint.endpointNumber, combinedReceipt);
     
     return true;
   } catch (err) {
