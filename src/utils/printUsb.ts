@@ -32,18 +32,16 @@ class EscPosEncoder {
     for (let i = 0; i < count; i++) this.buffer.push(0x0a);
   }
   cut() {
-    // Feed 5 lines so that the printed text is past the physical paper cutter
-    this.buffer.push(0x0a, 0x0a, 0x0a, 0x0a, 0x0a);
+    // Feed only 3 lines (about 12mm, the exact distance between thermal head and cutter)
+    // to ensure the printed text has cleared the cutter without wasting any extra paper!
+    this.buffer.push(0x0a, 0x0a, 0x0a);
     
-    // Try multiple standard ESC/POS cut commands to ensure high compatibility:
-    // 1. GS V 66 0 (Feed and cut - standard for modern printers)
-    this.buffer.push(0x1d, 0x56, 0x42, 0x00);
-    // 2. GS V 0 (Standard full cut fallback)
-    this.buffer.push(0x1d, 0x56, 0x00);
-    // 3. ESC m (Cut for generic/Chinese printers fallback)
-    this.buffer.push(0x1b, 0x6d);
-    // 4. ESC i (Alternative cut command fallback)
-    this.buffer.push(0x1b, 0x69);
+    // Highly compatible cut commands sent back-to-back:
+    this.buffer.push(0x1d, 0x56, 0x01); // 1. GS V 1 (Standard ESC/POS partial cut)
+    this.buffer.push(0x1d, 0x56, 0x31); // 2. GS V '1' (Alternative ESC/POS partial cut)
+    this.buffer.push(0x1b, 0x6d);       // 3. ESC m (Epson/Elgin/Chinese partial cut fallback)
+    this.buffer.push(0x1b, 0x69);       // 4. ESC i (Epson/Elgin/Chinese full cut fallback)
+    this.buffer.push(0x1b, 0x77);       // 5. ESC w (Bematech native cut fallback)
   }
   encode() {
     return new Uint8Array(this.buffer);
@@ -58,11 +56,12 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
   enc.alignCenter();
   enc.bold(true);
   enc.text("Pastelaria da Silvania");
-  enc.newline(2);
+  enc.newline();
   enc.text(`VIA ${type === 'kitchen' ? 'COZINHA' : 'MOTOBOY / ENTREGA'}`);
-  enc.newline(2);
+  enc.newline();
   
   enc.alignLeft();
+  enc.bold(false);
   enc.text(`Pedido: #${order.id?.substring(0, 6).toUpperCase()}`);
   enc.newline();
   enc.text(`Data: ${new Date(order.createdAt).toLocaleString()}`);
@@ -83,10 +82,9 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
     enc.bold(false);
     enc.newline();
   }
-  enc.newline();
   
   enc.alignCenter();
-  enc.text("--- Itens do Pedido ---");
+  enc.text("--------------------------------");
   enc.newline();
   enc.alignLeft();
   
@@ -96,7 +94,7 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
     enc.bold(false);
     enc.text(`${item.productName}`);
     if (type === 'dispatch') {
-      enc.text(`  ${formatCurrency(item.price * item.quantity)}`);
+      enc.text(` - ${formatCurrency(item.price * item.quantity)}`);
     }
     enc.newline();
     if (item.category) {
@@ -104,7 +102,6 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
       enc.newline();
     }
   });
-  enc.newline(1);
   
   if (type === 'dispatch') {
     enc.bold(true);
@@ -115,7 +112,7 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
       enc.newline();
     }
     enc.text(`TOTAL: ${formatCurrency(order.total)}`);
-    enc.newline(2);
+    enc.newline();
     enc.bold(false);
   }
   
@@ -133,10 +130,8 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
     enc.newline();
     
     if (order.paymentMethod) {
-      enc.text(`Pagamento Presencial:`);
+      enc.text(`Pagamento: ${order.paymentMethod}`);
       enc.newline();
-      enc.text(order.paymentMethod);
-      enc.newline(2);
     }
   }
   
@@ -145,10 +140,9 @@ export function buildReceipt(order: Order, type: 'kitchen' | 'dispatch') {
     enc.bold(true);
     enc.text(`AGENDADO: ${order.scheduledDate.split('-').reverse().join('/')} as ${order.scheduledTime}`);
     enc.bold(false);
-    enc.newline(2);
+    enc.newline();
   }
   
-  enc.newline(3); // extra paper before cut
   enc.cut();
   
   return enc.encode();
