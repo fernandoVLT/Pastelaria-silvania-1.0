@@ -8,10 +8,11 @@ import { requestUsbPrinter } from '../utils/printUsb';
 import { ImageUploadInput } from './ImageUploadInput';
 import { AdminOrders } from './AdminOrders';
 import { AdminReports } from './AdminReports';
+import { AdminCategories } from './AdminCategories';
 
 export function AdminModal({ onClose }: { onClose: () => void }) {
   const { config, setConfig, products, addProduct, updateProduct, deleteProduct } = useStore();
-  const [activeTab, setActiveTab] = useState<'orders' | 'config' | 'products' | 'messages' | 'pagamentos' | 'reports'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'config' | 'products' | 'categories' | 'messages' | 'pagamentos' | 'reports'>('orders');
 
   const [formConfig, setFormConfig] = useState(config);
   
@@ -95,6 +96,12 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
             Produtos
           </button>
           <button 
+            onClick={() => setActiveTab('categories')}
+            className={`px-4 py-3 font-bold text-sm tracking-widest uppercase border-b-2 transition-colors ${activeTab === 'categories' ? 'border-brand-red text-brand-red' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+          >
+            Categorias
+          </button>
+          <button 
             onClick={() => setActiveTab('messages')}
             className={`px-4 py-3 font-bold text-sm tracking-widest uppercase border-b-2 transition-colors ${activeTab === 'messages' ? 'border-brand-red text-brand-red' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
           >
@@ -117,6 +124,7 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
         <div className="flex-1 overflow-y-auto p-6 bg-gray-50 custom-scrollbar">
           {activeTab === 'orders' && <AdminOrders />}
           {activeTab === 'reports' && <AdminReports />}
+          {activeTab === 'categories' && <AdminCategories />}
           
           {activeTab === 'config' && (
             <div className="max-w-2xl space-y-6">

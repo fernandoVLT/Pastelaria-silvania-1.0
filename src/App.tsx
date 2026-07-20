@@ -33,11 +33,23 @@ export default function App() {
   const [sortOrder, setSortOrder] = useState<'none' | 'asc' | 'desc'>('none');
   const [visibleCount, setVisibleCount] = useState(12);
 
+  const displayCategories = useMemo(() => {
+    const cats = [...config.categories];
+    const catSet = new Set(cats);
+    products.forEach(p => {
+      if (p.isAvailable !== false && p.category && !catSet.has(p.category)) {
+        catSet.add(p.category);
+        cats.push(p.category);
+      }
+    });
+    return cats;
+  }, [config.categories, products]);
+
   useEffect(() => {
-    if (config.categories.length > 0 && !activeCategory) {
-      setActiveCategory(config.categories[0]);
+    if (displayCategories.length > 0 && (!activeCategory || !displayCategories.includes(activeCategory))) {
+      setActiveCategory(displayCategories[0]);
     }
-  }, [config.categories, activeCategory]);
+  }, [displayCategories, activeCategory]);
 
   useEffect(() => {
     setVisibleCount(12);
@@ -263,7 +275,7 @@ export default function App() {
           {/* Categories Tab */}
           {!showFavorites && !searchQuery && (
             <div className="flex overflow-x-auto gap-4 pb-6 mb-8 scrollbar-hide" id="cardapio">
-              {config.categories.map(category => (
+              {displayCategories.map(category => (
                 <button
                   key={category}
                   onClick={() => setActiveCategory(category)}
