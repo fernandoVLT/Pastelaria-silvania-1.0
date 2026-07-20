@@ -319,20 +319,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const updateProduct = async (updated: Product) => {
+    const original = products;
     try {
       setProductsState(products.map(p => p.id === updated.id ? updated : p));
       await setDoc(doc(db, 'products', updated.id), updated);
     } catch (e) {
+      setProductsState(original);
       handleFirestoreError(e, OperationType.UPDATE, `products/${updated.id}`);
+      throw e;
     }
   };
 
   const addProduct = async (product: Product) => {
+    const original = products;
     try {
       setProductsState([...products, product]);
       await setDoc(doc(db, 'products', product.id), product);
     } catch (e) {
+      setProductsState(original);
       handleFirestoreError(e, OperationType.CREATE, `products/${product.id}`);
+      throw e;
     }
   };
 

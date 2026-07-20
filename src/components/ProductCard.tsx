@@ -42,7 +42,7 @@ export const ProductCard = memo(function ProductCard({
 
       {/* Image container changes for mobile vs desktop */}
       {product.imageUrl && (
-        <div className="w-24 h-24 sm:w-full sm:h-40 shrink-0 relative z-10">
+        <div className="w-24 h-24 sm:w-full sm:h-40 shrink-0 relative z-10 overflow-hidden rounded-xl">
           <img src={product.imageUrl} alt={product.name} loading="lazy" decoding="async" className="w-full h-full object-cover rounded-xl border border-gray-100 transition-all group-hover:scale-[1.02]" />
           {isUnavailable && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-xl">

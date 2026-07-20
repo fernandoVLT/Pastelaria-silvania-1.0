@@ -39,7 +39,7 @@ export function ProductModal({ product, onClose, onAdd }: Props) {
         
         <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
           {product.imageUrl && (
-            <img src={product.imageUrl} alt={product.name} loading="lazy" decoding="async" className="w-full h-48 object-cover rounded-xl mb-6 border border-gray-100 shadow-sm" />
+            <img src={product.imageUrl} alt={product.name} loading="lazy" decoding="async" className="w-full h-48 object-cover rounded-xl mb-6 border border-gray-100 shadow-sm overflow-hidden" />
           )}
           
           <h3 className="text-3xl font-black text-gray-900 mb-1 tracking-tight uppercase leading-none">{product.name}</h3>

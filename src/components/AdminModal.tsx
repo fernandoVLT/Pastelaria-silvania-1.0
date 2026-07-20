@@ -27,24 +27,29 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
     onClose();
   };
 
-  const handleSaveProduct = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveProduct = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editingProduct) return;
     
-    if (isAddingProduct) {
-      addProduct({ ...editingProduct, id: crypto.randomUUID(), createdAt: Date.now() });
-    } else {
-      updateProduct(editingProduct);
+    try {
+      if (isAddingProduct) {
+        await addProduct({ ...editingProduct, id: crypto.randomUUID(), createdAt: Date.now() });
+      } else {
+        await updateProduct(editingProduct);
+      }
+      
+      if (!config.categories.includes(editingProduct.category)) {
+        await setConfig({ ...config, categories: [...config.categories, editingProduct.category] });
+      }
+      
+      setEditingProduct(null);
+      setIsAddingProduct(false);
+      setIsEnteringNewCategory(false);
+      notify.success('Produto salvo com sucesso!');
+    } catch (e) {
+      // Error is already handled and notified by the context
+      console.error("Failed to save product", e);
     }
-    
-    if (!config.categories.includes(editingProduct.category)) {
-      setConfig({ ...config, categories: [...config.categories, editingProduct.category] });
-    }
-    
-    setEditingProduct(null);
-    setIsAddingProduct(false);
-    setIsEnteringNewCategory(false);
-    notify.success('Produto salvo com sucesso!');
   };
 
   const startAddProduct = () => {
@@ -1145,7 +1150,7 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                             <td className="p-4">
                               <div className="flex items-center gap-3">
                                 {p.imageUrl ? (
-                                  <img src={p.imageUrl} alt={p.name} className="w-10 h-10 rounded object-cover border border-gray-200" />
+                                  <img src={p.imageUrl} alt={p.name} className="w-10 h-10 rounded object-contain bg-white border border-gray-200" />
                                 ) : (
                                   <div className="w-10 h-10 rounded bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
                                     <ImageIcon className="w-4 h-4" />
@@ -1227,7 +1232,7 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                             <td className="p-4">
                               <div className="flex items-center gap-3">
                                 {p.imageUrl ? (
-                                  <img src={p.imageUrl} alt={p.name} className="w-10 h-10 rounded object-cover border border-gray-200" />
+                                  <img src={p.imageUrl} alt={p.name} className="w-10 h-10 rounded object-contain bg-white border border-gray-200" />
                                 ) : (
                                   <div className="w-10 h-10 rounded bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
                                     <ImageIcon className="w-4 h-4" />
@@ -1384,7 +1389,7 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                     placeholder="https://..."
                   />
                   {editingProduct.imageUrl && (
-                    <img src={editingProduct.imageUrl} alt="Preview" className="mt-2 h-32 rounded-xl object-cover border border-gray-200" />
+                    <img src={editingProduct.imageUrl} alt="Preview" className="mt-2 h-32 rounded-xl object-cover border border-gray-200 overflow-hidden" />
                   )}
                 </div>
                 <div>
