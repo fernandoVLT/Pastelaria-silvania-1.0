@@ -426,7 +426,7 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                     
                     {formConfig.autoOpenClose && (
                       <div className="mt-4 flex flex-col gap-3">
-                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-1">Configuração de Horários por Dia (Fechado fixo às Segundas)</label>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-1">Configuração de Horários por Dia</label>
                         {[0,1,2,3,4,5,6].map(day => {
                           const dayNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
                           const schedule = formConfig.businessHours?.[day] || { isOpen: false, slots: [] };
@@ -443,14 +443,13 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                                       newConfig.businessHours[day] = { ...schedule, isOpen: e.target.checked };
                                       setFormConfig(newConfig);
                                     }}
-                                    disabled={day === 1} // Segunda fixo
                                     className="w-4 h-4 accent-brand-red cursor-pointer"
                                   />
                                   <span className="text-sm font-bold text-gray-800">{dayNames[day]}</span>
                                 </div>
                                 <button
                                   type="button"
-                                  disabled={!schedule.isOpen || day === 1}
+                                  disabled={!schedule.isOpen}
                                   onClick={() => {
                                     const newConfig = { ...formConfig };
                                     if (!newConfig.businessHours) newConfig.businessHours = {};
