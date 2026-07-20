@@ -63,6 +63,11 @@ export function AdminCategories() {
       ...config,
       categories: config.categories.filter(c => c !== category)
     });
+    // Also remove this category from any products
+    const productsInCat2 = products.filter(p => p.category === category);
+    for (const p of productsInCat2) {
+      updateProduct({ ...p, category: '' });
+    }
     notify.success('Categoria excluída!');
   };
 
@@ -92,7 +97,7 @@ export function AdminCategories() {
         </div>
 
         <div className="space-y-2">
-          {config.categories.map(category => (
+          {Array.from(new Set([...config.categories, ...products.map(p => p.category).filter(c => c)])).map(category => (
             <div key={category} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
               {editingCategory?.oldName === category ? (
                 <div className="flex-1 flex gap-2 items-center mr-4">

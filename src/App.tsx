@@ -36,16 +36,19 @@ export default function App() {
   const displayCategories = useMemo(() => {
     const cats = [...config.categories];
     const catSet = new Set(cats);
-    let hasOther = false;
+    let hasEmpty = false;
     products.forEach(p => {
       if (p.isAvailable !== false) {
-        if (!p.category || !catSet.has(p.category)) {
-          hasOther = true;
+        if (p.category && !catSet.has(p.category)) {
+          catSet.add(p.category);
+          cats.push(p.category);
+        } else if (!p.category) {
+          hasEmpty = true;
         }
       }
     });
-    if (hasOther && !catSet.has('Outras Categorias')) {
-      cats.push('Outras Categorias');
+    if (hasEmpty && !catSet.has('Sem Categoria')) {
+      cats.push('Sem Categoria');
     }
     return cats;
   }, [config.categories, products]);
@@ -177,9 +180,8 @@ export default function App() {
       if (showFavorites) {
         return favorites.includes(p.id);
       }
-      if (activeCategory === 'Outras Categorias') {
-        const catSet = new Set(config.categories);
-        return !p.category || !catSet.has(p.category);
+      if (activeCategory === 'Sem Categoria') {
+        return !p.category;
       }
       return p.category === activeCategory;
     });
