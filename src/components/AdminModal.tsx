@@ -1100,9 +1100,10 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
 
-              {config.categories.map(category => {
+              {(Array.from(new Set([...config.categories, ...products.map(p => p.category || 'Sem Categoria')]))).map(category => {
                 const categoryProducts = products.filter(p => {
-                  const matchesCategory = p.category === category;
+                  const pCat = p.category || 'Sem Categoria';
+                  const matchesCategory = pCat.trim().toLowerCase() === category.trim().toLowerCase();
                   const matchesSearch = !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()) || (p.description && p.description.toLowerCase().includes(productSearch.toLowerCase()));
                   return matchesCategory && matchesSearch;
                 });

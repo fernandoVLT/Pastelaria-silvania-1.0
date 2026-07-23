@@ -324,11 +324,7 @@ export function AdminOrders() {
         window.location.href = `whatsapp://send?phone=${phoneStr}&text=${text}`;
       } else {
         // Use intent URI for desktop as well if they have WhatsApp installed
-        const popup = window.open(`https://web.whatsapp.com/send?phone=${phoneStr}&text=${text}`, 'whatsapp_popup', 'width=800,height=600');
-        if (!popup) {
-           // Fallback to regular WA web
-           window.open(`https://api.whatsapp.com/send?phone=${phoneStr}&text=${text}`, '_blank', 'noopener,noreferrer');
-        }
+        window.open(`https://wa.me/${phoneStr}?text=${text}`, '_blank', 'noopener,noreferrer');
       }
     }
   };
@@ -551,10 +547,7 @@ export function AdminOrders() {
                       if (isMobile) {
                         window.location.href = `whatsapp://send?phone=${phoneStr}&text=${text}`;
                       } else {
-                        const popup = window.open(`https://web.whatsapp.com/send?phone=${phoneStr}&text=${text}`, 'whatsapp_popup', 'width=800,height=600');
-                        if (!popup) {
-                           window.open(`https://api.whatsapp.com/send?phone=${phoneStr}&text=${text}`, '_blank', 'noopener,noreferrer');
-                        }
+                        window.open(`https://wa.me/${phoneStr}?text=${text}`, '_blank', 'noopener,noreferrer');
                       }
                     }} 
                     className="p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-lg transition-colors"

@@ -18,7 +18,7 @@ export function Banner() {
       <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent flex items-end">
         <div className="max-w-7xl mx-auto px-4 pb-12 w-full">
           <div className="max-w-2xl">
-             <h1 className="text-5xl md:text-7xl font-display leading-[0.85] tracking-tight mb-6 text-white drop-shadow-md">
+             <h1 className="text-5xl md:text-7xl font-display leading-[1.1] sm:leading-[0.85] tracking-tight mb-6 text-white drop-shadow-md">
                 {config.logoText.split(' ').map((word, i, arr) => 
                   i === arr.length - 1 ? <span key={i} className="text-brand-yellow">{word}</span> : word + ' '
                 )}
