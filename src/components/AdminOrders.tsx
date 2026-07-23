@@ -598,6 +598,16 @@ export function AdminOrders() {
 
               {/* Actions */}
               <div className="mt-1 pt-2 border-t border-gray-200/50 flex flex-wrap gap-1">
+                {order.status === 'Aguardando Confirmação Pix' && (
+                  <button 
+                    onClick={() => {
+                       handleStatusChange(order, 'Feito');
+                    }}
+                    className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-1.5 rounded-md text-[9px] font-bold tracking-widest uppercase transition-colors"
+                  >
+                    Confirmar Pix
+                  </button>
+                )}
                 {order.status === 'Feito' && (
                   <button 
                     onClick={() => {
@@ -633,7 +643,7 @@ export function AdminOrders() {
                     Pedido Entregue
                   </button>
                 )}
-                {['Feito', 'Em Preparo', 'A caminho', 'Pronto'].includes(order.status) && (
+                {['Aguardando Confirmação Pix', 'Feito', 'Em Preparo', 'A caminho', 'Pronto'].includes(order.status) && (
                   <button 
                     onClick={() => setCancelingOrder(order)}
                     className="flex-1 max-w-[70px] bg-red-100 hover:bg-red-200 text-red-700 py-1.5 rounded-md text-[9px] font-bold tracking-widest uppercase transition-colors"
