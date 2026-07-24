@@ -40,6 +40,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   const [neighborhood, setNeighborhood] = useState(ALLOWED_NEIGHBORHOODS[0]);
   const [street, setStreet] = useState('');
   const [addressNumber, setAddressNumber] = useState('');
+  const [reference, setReference] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [needsChange, setNeedsChange] = useState<boolean>(false);
   const [changeFor, setChangeFor] = useState<number | ''>('');
@@ -156,7 +157,8 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
         orderData.address = {
           neighborhood,
           street: street.trim(),
-          number: addressNumber.trim()
+          number: addressNumber.trim(),
+          reference: reference.trim()
         };
       }
 
@@ -189,7 +191,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       
       if (orderType === 'Delivery') {
         wppMessage += `*🛵 Tipo:* Delivery\n`;
-        wppMessage += `*📍 Endereço:*\n${street.trim()}, ${addressNumber.trim()} - ${neighborhood}\n\n`;
+        wppMessage += `*📍 Endereço:*\n${street.trim()}, ${addressNumber.trim()} - ${neighborhood}${reference ? '\n*Referência:* ' + reference.trim() : ''}\n\n`;
       } else {
         wppMessage += `*🏪 Tipo:* Retirada na Loja\n\n`;
       }
@@ -221,6 +223,10 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       wppMessage += `Forma: ${paymentText}\n\n`;
       wppMessage += `⏱️ *Tempo Estimado:* ${timeMessage}`;
 
+      if (paymentMethod === 'Pix Manual') {
+        wppMessage += `\n\n⚠️ *Atenção:* O pedido só será confirmado após o envio do comprovante Pix por aqui!\n`;
+      }
+      
       if (paymentMethod === 'Pix') {
         if (config.bbPixConfig?.enabled) {
           try {
@@ -525,6 +531,16 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                         className="w-full bg-white border border-gray-200 rounded-xl p-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent text-sm font-bold"
                       />
                     </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Ponto de Referência (Opcional)</label>
+                    <input
+                      type="text"
+                      value={reference}
+                      onChange={(e) => setReference(e.target.value)}
+                      placeholder="Ex: Próximo ao supermercado"
+                      className="w-full bg-white border border-gray-200 rounded-xl p-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent text-sm font-bold"
+                    />
                   </div>
                 </div>
               ) : (

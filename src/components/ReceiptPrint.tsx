@@ -66,11 +66,7 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
                 </div>
                 {type === 'dispatch' && <div>{formatCurrency(item.price * item.quantity)}</div>}
               </div>
-              {item.category && (
-                <div style={{ paddingLeft: '14px', fontSize: type === 'kitchen' ? '12px' : '9px', color: '#000', fontWeight: 'bold' }}>
-                  [{emphasizeSize(item.category)}]
-                </div>
-              )}
+
             </div>
           );
         })}
@@ -95,22 +91,22 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
          </div>
       )}
 
-      {type === 'dispatch' && order.orderType === 'Delivery' && order.address && (
-         <div className="receipt-address text-[11px] mb-1.5 border-b border-dashed border-black pb-1">
-           <div className="font-bold mb-0.5 uppercase text-[9px]">Endereço de Entrega:</div>
-           <div>{order.address.street}, {order.address.number}</div>
-           <div>{order.address.neighborhood}</div>
-           {order.address.complement && <div className="text-[9.5px] italic">({order.address.complement})</div>}
+      {order.orderType === 'Delivery' && order.address && (
+         <div className="receipt-address text-[11px] mb-1.5 border-b border-dashed border-black pb-1" style={{ fontSize: type === 'kitchen' ? '13px' : '11px' }}>
+           <div className="font-bold mb-0.5 uppercase" style={{ fontSize: type === 'kitchen' ? '12px' : '9px' }}>Endereço de Entrega:</div>
+           <div style={{ fontWeight: type === 'kitchen' ? 'bold' : 'normal' }}>{order.address.street}, {order.address.number}</div>
+           <div style={{ fontWeight: type === 'kitchen' ? 'bold' : 'normal' }}>{order.address.neighborhood}</div>
+           {order.address.reference && <div className="mt-1" style={{ fontWeight: 'bold', fontSize: type === 'kitchen' ? '14px' : '11px', textTransform: 'uppercase' }}>Ref: {order.address.reference}</div>}
          </div>
       )}
 
       {type === 'dispatch' && order.orderType === 'Delivery' && (
          <div className="receipt-payment text-center p-2 mt-2 mb-1 border-2 border-black">
            <div className="text-[12px] uppercase font-bold mb-1">
-             Forma de Pagamento
+             PAGAMENTO:
            </div>
            <div className="text-[16px] font-extrabold uppercase">
-             {order.paymentMethod || 'NÃO INFORMADO'}
+             {(order.paymentMethod === 'Pix' || order.paymentMethod === 'Pix Manual') ? order.paymentMethod + ' (PAGO)' : (order.paymentMethod || 'NÃO INFORMADO')}
            </div>
            {order.paymentMethod?.toLowerCase().includes('dinheiro') && order.changeFor ? (
              <div className="mt-2 mb-1 py-1 border-y-2 border-dashed border-black">
@@ -183,8 +179,12 @@ export const ReceiptPrint = forwardRef<HTMLDivElement, ReceiptPrintProps>(({ ord
       {type === 'all' && (
         <>
           {renderVia('kitchen')}
-          <div className="page-break" />
-          {renderVia('dispatch')}
+          {order.orderType === 'Delivery' && (
+            <>
+              <div className="page-break" />
+              {renderVia('dispatch')}
+            </>
+          )}
         </>
       )}
     </div>

@@ -68,6 +68,7 @@ export interface Order {
     neighborhood: string;
     street: string;
     number: string;
+    reference?: string;
   };
   paymentMethod: PaymentMethod;
   needsChange?: boolean;

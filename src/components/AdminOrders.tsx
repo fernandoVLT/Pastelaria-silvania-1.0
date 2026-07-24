@@ -168,7 +168,7 @@ export function AdminOrders() {
 
     // Check for new orders in 'Feito' status that haven't been printed yet
     const unprintedNewOrders = orders.filter(
-      (o) => o.status === 'Feito' && !o.hasBeenPrinted && !printedOrdersRef.current.has(o.id!) && (nowMs - o.createdAt < oneHourMs)
+      (o) => (o.status === 'Feito' || o.status === 'Em Preparo') && !o.hasBeenPrinted && !printedOrdersRef.current.has(o.id!) && (nowMs - o.createdAt < oneHourMs)
     );
     
     if (unprintedNewOrders.length > 0) {
@@ -266,14 +266,24 @@ export function AdminOrders() {
     else if (st === 'A caminho') baseMsg = config.whatsappMessages?.orderDispatched?.replace('{customerName}', order.customerName) || `Olá ${order.customerName}, seu pedido já saiu para entrega e está a caminho! 🛵💨`;
     else if (st === 'Entregue') baseMsg = config.whatsappMessages?.orderDelivered?.replace('{customerName}', order.customerName) || `Olá ${order.customerName}, seu pedido foi entregue. Muito obrigado pela preferência!`;
     
-    // Build items summary
-    let itemsTxt = '\\n\\n*Resumo do Pedido:*\\n';
-    order.items.forEach(item => {
-      itemsTxt += `• ${item.quantity}x ${item.productName}\\n`;
-    });
-    
-    if (order.orderType === 'Delivery' && order.address) {
-      itemsTxt += `\\n*Endereço:* ${order.address.street}, ${order.address.number} - ${order.address.neighborhood}`;
+    // Build items summary (only for 'Feito' status)
+    let itemsTxt = '';
+    if (st === 'Feito') {
+      itemsTxt = '\n\n*Resumo do Pedido:*\n';
+      order.items.forEach(item => {
+        let tamanho = '';
+        if (item.category) {
+          const lower = item.category.toLowerCase();
+          if (lower.includes('pequeno')) tamanho = ' (PEQUENO)';
+          if (lower.includes('grande')) tamanho = ' (GRANDE)';
+          if (lower.includes('médio') || lower.includes('medio')) tamanho = ' (MÉDIO)';
+        }
+        itemsTxt += `• ${item.quantity}x ${item.productName}${tamanho}\n`;
+      });
+      
+      if (order.orderType === 'Delivery' && order.address) {
+        itemsTxt += `\n*Endereço:* ${order.address.street}, ${order.address.number} - ${order.address.neighborhood}${order.address.reference ? ' (Ref: ' + order.address.reference + ')' : ''}`;
+      }
     }
     
     return encodeURIComponent(baseMsg + itemsTxt);
@@ -317,15 +327,8 @@ export function AdminOrders() {
       }
 
       // Fallback to normal Web Whatsapp if API is not enabled
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      
-      if (isMobile) {
-        // Use intent URI so it doesn't open a new browser tab and leaves the admin screen intact
-        window.location.href = `whatsapp://send?phone=${phoneStr}&text=${text}`;
-      } else {
-        // Use intent URI for desktop as well if they have WhatsApp installed
-        window.open(`https://wa.me/${phoneStr}?text=${text}`, '_blank', 'noopener,noreferrer');
-      }
+      // Constantly opening new tabs is annoying, so we will skip it unless they use the silent API
+      // They can still click the WPP button manually on the order card
     }
   };
 
