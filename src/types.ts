@@ -82,6 +82,7 @@ export interface Order {
   scheduledDate?: string;
   scheduledTime?: string;
   cancellationReason?: string;
+  pixReceiptUrl?: string;
   hasBeenPrinted?: boolean;
   statusLog?: { status: OrderStatus; timestamp: number; user?: string }[];
 }

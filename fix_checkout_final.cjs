@@ -1,291 +1,18 @@
-import { X, QrCode, CreditCard, Wallet, Utensils, CheckCircle, ExternalLink, MapPin, Store, Copy, Banknote, AlertCircle } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-import { motion } from 'motion/react';
-import { notify } from './NotificationOverlay';
-import { useStore } from '../contexts/StoreContext';
-import { CartItem, PaymentMethod, OrderType } from '../types';
-import { formatCurrency } from '../utils/formatCurrency';
-import { generatePixCode } from '../utils/pix';
-import { ImageUploadInput } from './ImageUploadInput';
+const fs = require('fs');
+let code = fs.readFileSync('src/components/CheckoutModal.tsx', 'utf-8');
 
-interface Props {
-  items: CartItem[];
-  total: number;
-  onClose: () => void;
-  onFinish: () => void;
-}
+// I will just use regex to replace from "if (isOrderSent) {" all the way to "      <div className="bg-white border border-gray-100 md:rounded-3xl"
 
-const FALLBACK_PAYMENT_METHODS: PaymentMethod[] = [
-  'Pix',
-  'Cartão de Crédito',
-  'Cartão de Débito',
-  'Vale Alimentação',
-  'Dinheiro'
-];
+const startTarget = "  if (isOrderSent) {";
+const endTarget = "        <div className=\"p-6 border-t border-gray-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-6 sticky bottom-0 z-20 rounded-b-3xl";
 
-const ALLOWED_NEIGHBORHOODS = [
-  "Alto do Chalé", "Amália Rodrigues", "Bandeirantes", "Bela Vista", "Belvedere",
-  "Campo Novo", "Centro", "Dom Orione", "Flores", "Inconfidentes", "Jardim Belo Horizonte",
-  "Jardim Belo Vale", "Jardim Monte Belo", "Luzia Augusta", "Metalúrgicos", "Minas Talco",
-  "Nova Serrana", "Novo Horizonte", "Pioneiros", "Primeiro de Maio", "São Francisco",
-  "Serra Verde", "Siderurgia", "Soledade", "Vale do Engenho", "Portaria Leste da Gerdau"
-];
+const startIndex = code.indexOf(startTarget);
+const endIndex = code.indexOf(endTarget);
 
-export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: Props) {
-  const { config, recordSale, createOrder, updateOrderStatus } = useStore();
-  
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [orderType, setOrderType] = useState<OrderType>('Delivery');
-  const [neighborhood, setNeighborhood] = useState(ALLOWED_NEIGHBORHOODS[0]);
-  const [street, setStreet] = useState('');
-  const [addressNumber, setAddressNumber] = useState('');
-  const [reference, setReference] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
-  const [needsChange, setNeedsChange] = useState<boolean>(false);
-  const [changeFor, setChangeFor] = useState<number | ''>('');
-  const [isOrderSent, setIsOrderSent] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [pixReceiptUrl, setPixReceiptUrl] = useState<string>('');
-  const [wpUrl, setWpUrl] = useState('');
-  const [paymentLink, setPaymentLink] = useState('');
-  const [bbBrcode, setBbBrcode] = useState('');
-  const [bbTxid, setBbTxid] = useState('');
-  const [isPollingPix, setIsPollingPix] = useState(false);
-  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
-  const [createdOrderId, setCreatedOrderId] = useState('');
+const beforeStr = code.substring(0, startIndex);
+const afterStr = code.substring(endIndex);
 
-  const deliveryFee = orderType === 'Delivery' ? (config.deliveryFee || 3.00) : 0;
-  const finalTotal = itemsTotal + deliveryFee;
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isOrderSent && bbTxid && !paymentConfirmed) {
-      setIsPollingPix(true);
-      interval = setInterval(async () => {
-        try {
-          const res = await fetch('/api/bb-pix-status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              txid: bbTxid,
-              bbPixConfig: config.bbPixConfig
-            })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.status === 'CONCLUIDA') {
-              setPaymentConfirmed(true);
-              setIsPollingPix(false);
-              clearInterval(interval);
-              notify.success('Pagamento PIX confirmado com sucesso!');
-              // Atualizar status no banco
-              if (createdOrderId) {
-                await updateOrderStatus(createdOrderId, 'Feito');
-              }
-            }
-          }
-        } catch (err) {
-          console.error("Erro polling PIX:", err);
-        }
-      }, 5000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isOrderSent, bbTxid, paymentConfirmed, createdOrderId, config.bbPixConfig, updateOrderStatus]);
-
-  const handleSubmitOrder = async () => {
-    const minOrder = config.minOrderValue || 20;
-    if (itemsTotal < minOrder) {
-      notify.error(`Adicione mais produtos. O valor mínimo é de ${formatCurrency(minOrder)} em itens.`);
-      return;
-    }
-
-    if (!name.trim() || !phone.trim() || !paymentMethod) {
-      notify.error('Preencha seu nome, WhatsApp e a forma de pagamento.');
-      return;
-    }
-    
-    if (paymentMethod === 'Dinheiro' && needsChange) {
-      if (!changeFor || Number(changeFor) <= finalTotal) {
-        notify.error('Informe um valor de troco válido, maior que o total do pedido.');
-        return;
-      }
-    }
-
-    if (orderType === 'Delivery') {
-      if (!street.trim() || !addressNumber.trim()) {
-        notify.error('Preencha a rua e o número para entrega.');
-        return;
-      }
-    }
-
-    setIsCreating(true);
-
-    const orderItems = items.map(i => ({
-      productName: i.product.name,
-      category: i.product.category,
-      description: i.product.description,
-      quantity: i.quantity,
-      price: i.product.price,
-      observation: i.observation
-    }));
-
-    try {
-      const initialStatus = paymentMethod.includes('Pix') ? 'Aguardando Confirmação Pix' : 'Feito';
-      const orderData: any = {
-        customerName: name.trim(),
-        customerPhone: phone.trim(),
-        orderType,
-        paymentMethod,
-        needsChange: paymentMethod === 'Dinheiro' ? needsChange : undefined,
-        changeFor: paymentMethod === 'Dinheiro' && needsChange ? changeFor : undefined,
-        items: orderItems,
-        subtotal: itemsTotal,
-        deliveryFee,
-        total: finalTotal,
-        status: initialStatus,
-        createdAt: Date.now(),
-        statusLog: [{
-          status: initialStatus,
-          timestamp: Date.now(),
-          user: 'Cliente (App)'
-        }],
-        pixReceiptUrl: (paymentMethod === 'Pix Manual' && pixReceiptUrl) ? pixReceiptUrl : undefined
-      };
-
-      if (orderType === 'Delivery') {
-        orderData.address = {
-          neighborhood,
-          street: street.trim(),
-          number: addressNumber.trim(),
-          reference: reference.trim()
-        };
-      }
-
-      // Firestore doesn't accept undefined values
-      const cleanOrderData = JSON.parse(JSON.stringify(orderData));
-
-      const orderId = await createOrder(cleanOrderData);
-      setCreatedOrderId(orderId);
-
-      recordSale(items.map(i => ({ productId: i.product.id, quantity: i.quantity })));
-      
-      const timeMessage = orderType === 'Delivery' 
-        ? (config.deliveryTimeType === 'fixed' 
-            ? `${config.fixedDeliveryTime} min` 
-            : `${config.minDeliveryTime} a ${config.maxDeliveryTime} min`)
-        : (config.deliveryTimeType === 'fixed'
-            ? `${config.fixedDeliveryTime} min`
-            : `${config.minPickupTime} a ${config.maxPickupTime} min`);
-
-      const shortOrderId = orderId.substring(0, 4).toUpperCase();
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('pt-BR');
-      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-      let wppMessage = `🍔 *NOVO PEDIDO* 🍔\n\n`;
-      wppMessage += `*#️⃣ Pedido:* ${shortOrderId}\n`;
-      wppMessage += `*🕒 Feito em:* ${dateStr} às ${timeStr}\n\n`;
-      wppMessage += `*👤 Cliente:* ${name.trim()}\n`;
-      wppMessage += `*📞 Telefone:* ${phone.trim()}\n\n`;
-      
-      if (orderType === 'Delivery') {
-        wppMessage += `*🛵 Tipo:* Delivery\n`;
-        wppMessage += `*📍 Endereço:*\n${street.trim()}, ${addressNumber.trim()} - ${neighborhood}${reference ? '\n*Referência:* ' + reference.trim() : ''}\n\n`;
-      } else {
-        wppMessage += `*🏪 Tipo:* Retirada na Loja\n\n`;
-      }
-      
-      wppMessage += `*📋 ITENS DO PEDIDO*\n`;
-      wppMessage += `-------------------------------\n`;
-      
-      items.forEach(i => {
-        wppMessage += `*👉 ${i.quantity}x ${i.product.name}*\n`;
-        if (i.product.category) {
-          wppMessage += `   _Categoria: ${i.product.category}_\n`;
-        }
-        wppMessage += `   💰 ${i.quantity} x ${formatCurrency(i.product.price)} = ${formatCurrency(i.quantity * i.product.price)}\n\n`;
-      });
-      
-      wppMessage += `-------------------------------\n\n`;
-      wppMessage += `*💵 RESUMO FINANCEIRO*\n`;
-      wppMessage += `Subtotal: ${formatCurrency(itemsTotal)}\n`;
-      if (orderType === 'Delivery') {
-        wppMessage += `🛵 Taxa de Entrega: ${formatCurrency(deliveryFee)}\n`;
-      }
-      wppMessage += `*✅ TOTAL: ${formatCurrency(finalTotal)}*\n\n`;
-      
-      wppMessage += `*💳 PAGAMENTO*\n`;
-      let paymentText = paymentMethod;
-      if (paymentMethod === 'Dinheiro') {
-        paymentText += needsChange ? ` (Troco para ${formatCurrency(Number(changeFor))})` : ' (Sem troco)';
-      }
-      wppMessage += `Forma: ${paymentText}\n\n`;
-      wppMessage += `⏱️ *Tempo Estimado:* ${timeMessage}`;
-
-      if (paymentMethod === 'Pix Manual') {
-        wppMessage += `\n\n⚠️ *Comprovante Pix:* O cliente anexou o comprovante de pagamento no sistema. Você pode validá-ro no painel de pedidos.\n`;
-      }
-      
-      if (paymentMethod === 'Pix') {
-        if (config.bbPixConfig?.enabled) {
-          try {
-            const bbRes = await fetch('/api/bb-pix', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                amount: finalTotal,
-                txid: orderId.replace(/-/g, '').slice(0, 32),
-                bbPixConfig: config.bbPixConfig
-              })
-            });
-            const bbData = await bbRes.json();
-            if (bbData.brcode) {
-              setBbBrcode(bbData.brcode);
-              setBbTxid(bbData.txid || '');
-              wppMessage += `\n🔗 *Código PIX (Copia e Cola) Banco do Brasil:* \n${bbData.brcode}\n`;
-            } else if (bbData.error) {
-              console.error("BB Pix API error:", bbData.error);
-            }
-          } catch (err) {
-            console.error("Erro ao gerar BB Pix", err);
-          }
-        } else {
-          const staticPixKey = config.pixKey || '';
-          const staticPixName = config.pixReceiverName || '';
-          const staticPixCity = config.pixReceiverCity || '';
-          const pixCode = generatePixCode(staticPixKey, staticPixName, staticPixCity, finalTotal);
-          setBbBrcode(pixCode);
-          wppMessage += `\n🔗 *Código PIX Copia e Cola:* \n${pixCode}\n`;
-        }
-      }
-
-      const wpNumber = config.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';
-      const wpUrl = `https://wa.me/${wpNumber}?text=${encodeURIComponent(wppMessage)}`;
-      
-      const newWindow = window.open(wpUrl, '_blank');
-      // Adiciona o wpUrl ao estado para usar depois se o bloqueador de popup tiver agido
-      setWpUrl(wpUrl);
-      
-      setIsOrderSent(true);
-      notify.success('Pedido enviado com sucesso!');
-    } catch (e) {
-      notify.error('Houve um erro ao enviar seu pedido. Tente novamente.');
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const handleCloseSuccess = () => {
-    onFinish();
-    onClose();
-  };
-
-// ... removed nested import
-  if (isOrderSent) {
+const newMiddle = `  if (isOrderSent) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
         <motion.div 
@@ -409,24 +136,24 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setOrderType('Delivery')}
-                  className={`p-4 rounded-xl border-2 font-bold flex flex-col items-center justify-center gap-2 transition-all ${
+                  className={\`p-4 rounded-xl border-2 font-bold flex flex-col items-center justify-center gap-2 transition-all \${
                     orderType === 'Delivery'
                       ? 'border-brand-red bg-brand-red/5 text-brand-red shadow-sm'
                       : 'border-gray-100 text-gray-400 hover:border-gray-200 hover:bg-gray-50'
-                  }`}
+                  }\`}
                 >
-                  <MapPin className={`w-6 h-6 ${orderType === 'Delivery' ? 'text-brand-red' : 'text-gray-400'}`} />
+                  <MapPin className={\`w-6 h-6 \${orderType === 'Delivery' ? 'text-brand-red' : 'text-gray-400'}\`} />
                   Delivery
                 </button>
                 <button
                   onClick={() => setOrderType('Retirada')}
-                  className={`p-4 rounded-xl border-2 font-bold flex flex-col items-center justify-center gap-2 transition-all ${
+                  className={\`p-4 rounded-xl border-2 font-bold flex flex-col items-center justify-center gap-2 transition-all \${
                     orderType === 'Retirada'
                       ? 'border-brand-red bg-brand-red/5 text-brand-red shadow-sm'
                       : 'border-gray-100 text-gray-400 hover:border-gray-200 hover:bg-gray-50'
-                  }`}
+                  }\`}
                 >
-                  <Store className={`w-6 h-6 ${orderType === 'Retirada' ? 'text-brand-red' : 'text-gray-400'}`} />
+                  <Store className={\`w-6 h-6 \${orderType === 'Retirada' ? 'text-brand-red' : 'text-gray-400'}\`} />
                   Retirada
                 </button>
               </div>
@@ -488,17 +215,17 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                     <button
                       key={method}
                       onClick={() => setPaymentMethod(method as PaymentMethod)}
-                      className={`relative border-2 rounded-xl p-4 text-[9px] font-black tracking-widest uppercase transition-all flex flex-col items-center justify-center gap-3 text-center h-28 ${
+                      className={\`relative border-2 rounded-xl p-4 text-[9px] font-black tracking-widest uppercase transition-all flex flex-col items-center justify-center gap-3 text-center h-28 \${
                         isSelected 
-                          ? `${border} ${color} ${bg} shadow-md scale-105 z-10 ring-4 ring-${color.split('-')[1]}-500/20` 
+                          ? \`\${border} \${color} \${bg} shadow-md scale-105 z-10 ring-4 ring-\${color.split('-')[1]}-500/20\` 
                           : 'border-gray-200 text-gray-400 bg-white hover:border-gray-300 hover:bg-gray-50 hover:text-gray-600'
-                      }`}
+                      }\`}
                     >
-                      <Icon className={`w-8 h-8 transition-colors ${isSelected ? color : 'text-gray-300 group-hover:text-gray-500'}`} />
+                      <Icon className={\`w-8 h-8 transition-colors \${isSelected ? color : 'text-gray-300 group-hover:text-gray-500'}\`} />
                       <span>{method}</span>
                       {isSelected && (
-                         <div className={`absolute -top-2 -right-2 w-5 h-5 rounded-full ${bg} border-2 ${border} flex items-center justify-center`}>
-                           <div className={`w-2 h-2 rounded-full ${bg.replace('50', '500')}`}></div>
+                         <div className={\`absolute -top-2 -right-2 w-5 h-5 rounded-full \${bg} border-2 \${border} flex items-center justify-center\`}>
+                           <div className={\`w-2 h-2 rounded-full \${bg.replace('50', '500')}\`}></div>
                          </div>
                       )}
                     </button>
@@ -610,9 +337,9 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                             setNeedsChange(!needsChange);
                             if (needsChange) setChangeFor('');
                           }}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-red focus:ring-offset-2 ${needsChange ? 'bg-brand-red' : 'bg-gray-200'}`}
+                          className={\`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-red focus:ring-offset-2 \${needsChange ? 'bg-brand-red' : 'bg-gray-200'}\`}
                         >
-                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${needsChange ? 'translate-x-6' : 'translate-x-1'}`} />
+                          <span className={\`inline-block h-4 w-4 transform rounded-full bg-white transition-transform \${needsChange ? 'translate-x-6' : 'translate-x-1'}\`} />
                         </button>
                       </div>
                       
@@ -644,53 +371,8 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
             </div>
           </div>
         </div>
-        <div className="p-6 border-t border-gray-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-6 sticky bottom-0 z-20 rounded-b-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
-          <div className="w-full sm:w-auto flex flex-col space-y-1">
-            <div className="flex justify-between sm:justify-start sm:gap-4 text-xs font-medium text-gray-500">
-              <span>Subtotal:</span>
-              <span>{formatCurrency(itemsTotal)}</span>
-            </div>
-            {orderType === 'Delivery' && (
-              <>
-                <div className="flex justify-between sm:justify-start sm:gap-4 text-xs font-medium text-gray-500">
-                  <span>Taxa de Entrega:</span>
-                  <span>{formatCurrency(deliveryFee)}</span>
-                </div>
-                {(config.deliveryTimeType === 'fixed' && config.fixedDeliveryTime) || (config.deliveryTimeType === 'range' && config.minDeliveryTime && config.maxDeliveryTime) ? (
-                  <div className="flex justify-between sm:justify-start sm:gap-4 text-xs font-medium text-gray-500">
-                    <span>Tempo Estimado:</span>
-                    <span>
-                      {config.deliveryTimeType === 'fixed' 
-                        ? `~${config.fixedDeliveryTime} min` 
-                        : `${config.minDeliveryTime}-${config.maxDeliveryTime} min`}
-                    </span>
-                  </div>
-                ) : null}
-              </>
-            )}
-            <div className="flex justify-between sm:block pt-1">
-              <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest text-left">Total a Pagar</div>
-              <div className="font-black text-3xl text-brand-red tracking-tight">{formatCurrency(finalTotal)}</div>
-            </div>
-          </div>
-          <button 
-            onClick={handleSubmitOrder}
-            disabled={isCreating || (paymentMethod === "Pix Manual" && !pixReceiptUrl)}
-            className="w-full sm:flex-1 bg-[#25D366] hover:bg-[#20bd5a] text-white font-black h-14 rounded-full transition-all disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-3 uppercase text-[10px] tracking-[0.2em] shadow-lg hover:shadow-xl hover:-translate-y-1"
-          >
-            {isCreating ? (
-               <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-            ) : (
-              <>
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-                </svg>
-                Confirmar e Enviar Pedido
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+`;
+
+code = beforeStr + newMiddle + afterStr;
+
+fs.writeFileSync('src/components/CheckoutModal.tsx', code);

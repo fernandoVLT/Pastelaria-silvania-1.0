@@ -5,6 +5,7 @@ import { useStore } from '../contexts/StoreContext';
 import { Product } from '../types';
 import { formatCurrency } from '../utils/formatCurrency';
 import { requestUsbPrinter } from '../utils/printUsb';
+import { sendWhatsAppApiMessage } from '../utils/whatsapp';
 import { ImageUploadInput } from './ImageUploadInput';
 import { AdminOrders } from './AdminOrders';
 import { AdminReports } from './AdminReports';
@@ -15,6 +16,50 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<'orders' | 'config' | 'products' | 'categories' | 'messages' | 'pagamentos' | 'reports'>('orders');
 
   const [formConfig, setFormConfig] = useState(config);
+  const [testPhone, setTestPhone] = useState('31991456841');
+  const [isTestingWpp, setIsTestingWpp] = useState(false);
+  const [testLog, setTestLog] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  const handleTestWppApi = async () => {
+    const phoneToUse = testPhone.trim() || '31991456841';
+    setIsTestingWpp(true);
+    setTestLog(null);
+    try {
+      const configToTest = {
+        enabled: true,
+        provider: formConfig.whatsappApiConfig?.provider || 'zapi',
+        apiUrl: formConfig.whatsappApiConfig?.apiUrl || 'https://api.z-api.io',
+        instanceId: formConfig.whatsappApiConfig?.instanceId || '',
+        token: formConfig.whatsappApiConfig?.token || '',
+        clientToken: formConfig.whatsappApiConfig?.clientToken || ''
+      };
+
+      if (!configToTest.instanceId || !configToTest.token) {
+        setTestLog({ type: 'error', msg: 'Preencha o ID da Instância e o Token da Z-API antes de testar.' });
+        notify.error('Preencha o ID da Instância e o Token da Z-API.');
+        return;
+      }
+
+      const result = await sendWhatsAppApiMessage(
+        phoneToUse,
+        '🧪 *Teste de Conexão WhatsApp Z-API*\n\nSeu sistema de delivery está conectado e pronto para enviar mensagens automáticas!',
+        configToTest
+      );
+
+      if (result.success) {
+        setTestLog({ type: 'success', msg: `Mensagem de teste enviada com sucesso para ${phoneToUse}!` });
+        notify.success('Mensagem enviada com sucesso!');
+      } else {
+        setTestLog({ type: 'error', msg: `Erro Z-API: ${result.error}` });
+        notify.error(`Erro Z-API: ${result.error}`);
+      }
+    } catch (err: any) {
+      setTestLog({ type: 'error', msg: `Exceção: ${err.message || 'Falha na conexão'}` });
+      notify.error(`Erro no teste: ${err.message || 'Falha ao conectar'}`);
+    } finally {
+      setIsTestingWpp(false);
+    }
+  };
   
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
@@ -165,7 +210,7 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
                   />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Chave Pix</label>
                     <input 
@@ -193,6 +238,16 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                       value={formConfig.pixReceiverCity || ''} 
                       onChange={e => setFormConfig({...formConfig, pixReceiverCity: e.target.value})}
                       placeholder="Cidade"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Banco (Pix)</label>
+                    <input 
+                      type="text" 
+                      value={formConfig.pixBank || ''} 
+                      onChange={e => setFormConfig({...formConfig, pixBank: e.target.value})}
+                      placeholder="Ex: Nubank, Inter, Banco do Brasil"
                       className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
                     />
                   </div>
@@ -880,50 +935,135 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                     <input
                       type="checkbox"
                       checked={formConfig.whatsappApiConfig?.enabled || false}
-                      onChange={e => setFormConfig({...formConfig, whatsappApiConfig: { ...formConfig.whatsappApiConfig, enabled: e.target.checked }})}
+                      onChange={e => setFormConfig({
+                        ...formConfig, 
+                        whatsappApiConfig: { 
+                          provider: 'zapi',
+                          ...formConfig.whatsappApiConfig, 
+                          enabled: e.target.checked 
+                        }
+                      })}
                       className="w-5 h-5 rounded border-gray-300 text-brand-red focus:ring-brand-red cursor-pointer"
                     />
                     <div>
-                      <div className="text-sm font-bold text-gray-900">Integração API (Envio Direto sem tela)</div>
-                      <div className="text-[10px] text-gray-500">Enviar mensagens via Evolution API ao invés de abrir o WhatsApp Web.</div>
+                      <div className="text-sm font-bold text-gray-900">Integração API (Envio Direto e Automático)</div>
+                      <div className="text-[10px] text-gray-500">Enviar atualizações de pedido no WhatsApp do cliente via Z-API ou Evolution API sem abrir tela.</div>
                     </div>
                   </div>
                   
-                  {formConfig.whatsappApiConfig?.enabled && (
-                    <div className="space-y-3 pt-3 border-t border-gray-200">
+                  <div className="space-y-4 pt-3 border-t border-gray-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">URL Base da API</label>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Provedor de API</label>
+                        <select
+                          value={formConfig.whatsappApiConfig?.provider || 'zapi'}
+                          onChange={e => setFormConfig({
+                            ...formConfig,
+                            whatsappApiConfig: {
+                              ...formConfig.whatsappApiConfig,
+                              provider: e.target.value as 'zapi' | 'evolution'
+                            }
+                          })}
+                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm font-medium"
+                        >
+                          <option value="zapi">Z-API (z-api.io)</option>
+                          <option value="evolution">Evolution API</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">URL Base (Opcional)</label>
                         <input 
                           type="text" 
                           value={formConfig.whatsappApiConfig?.apiUrl || ''} 
                           onChange={e => setFormConfig({...formConfig, whatsappApiConfig: { ...formConfig.whatsappApiConfig, apiUrl: e.target.value }})}
-                          placeholder="EX: https://api.seudominio.com"
+                          placeholder={formConfig.whatsappApiConfig?.provider === 'evolution' ? 'EX: https://api.seudominio.com' : 'Padrão: https://api.z-api.io'}
                           className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Nome da Instância</label>
-                          <input 
-                            type="text" 
-                            value={formConfig.whatsappApiConfig?.instanceId || ''} 
-                            onChange={e => setFormConfig({...formConfig, whatsappApiConfig: { ...formConfig.whatsappApiConfig, instanceId: e.target.value }})}
-                            placeholder="EX: loja01"
-                            className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Global API Key</label>
-                          <input 
-                            type="password" 
-                            value={formConfig.whatsappApiConfig?.token || ''} 
-                            onChange={e => setFormConfig({...formConfig, whatsappApiConfig: { ...formConfig.whatsappApiConfig, token: e.target.value }})}
-                            className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm"
-                          />
-                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-1">
+                          {formConfig.whatsappApiConfig?.provider === 'evolution' ? 'Nome da Instância' : 'ID da Instância (ID na Z-API)'}
+                        </label>
+                        <input 
+                          type="text" 
+                          value={formConfig.whatsappApiConfig?.instanceId || ''} 
+                          onChange={e => setFormConfig({...formConfig, whatsappApiConfig: { ...formConfig.whatsappApiConfig, instanceId: e.target.value }})}
+                          placeholder={formConfig.whatsappApiConfig?.provider === 'evolution' ? 'EX: loja01' : 'EX: 3F6DC53509A2223961B8...'}
+                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-1">
+                          {formConfig.whatsappApiConfig?.provider === 'evolution' ? 'Global API Key / Token' : 'Token da Instância (TOKEN na Z-API)'}
+                        </label>
+                        <input 
+                          type="password" 
+                          value={formConfig.whatsappApiConfig?.token || ''} 
+                          onChange={e => setFormConfig({...formConfig, whatsappApiConfig: { ...formConfig.whatsappApiConfig, token: e.target.value }})}
+                          placeholder="Cole o TOKEN do painel"
+                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm font-mono"
+                        />
                       </div>
                     </div>
-                  )}
+
+                    {formConfig.whatsappApiConfig?.provider === 'zapi' && (
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-1">
+                          Client-Token (Opcional - Segurança)
+                        </label>
+                        <input 
+                          type="password" 
+                          value={formConfig.whatsappApiConfig?.clientToken || ''} 
+                          onChange={e => setFormConfig({...formConfig, whatsappApiConfig: { ...formConfig.whatsappApiConfig, clientToken: e.target.value }})}
+                          placeholder="Apenas se ativado no painel da Z-API > Segurança"
+                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 focus:outline-none focus:ring-1 focus:ring-brand-red text-sm font-mono"
+                        />
+                      </div>
+                    )}
+
+                    {/* Dedicated WhatsApp Test Component */}
+                    <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl space-y-3 mt-4">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-black text-emerald-900 uppercase tracking-wider flex items-center gap-2">
+                          <span>🧪</span> Teste da Integração Z-API / WhatsApp
+                        </div>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold uppercase">
+                          Teste Direto
+                        </span>
+                      </div>
+                      
+                      <p className="text-xs text-emerald-800">
+                        Informe o número de teste (com DDD) e clique em testar para disparar uma mensagem via Z-API.
+                      </p>
+
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          value={testPhone}
+                          onChange={e => setTestPhone(e.target.value)}
+                          placeholder="Número para teste ex: 31991456841"
+                          className="flex-1 bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleTestWppApi}
+                          disabled={isTestingWpp}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {isTestingWpp ? 'Enviando...' : 'Testar Agora'}
+                        </button>
+                      </div>
+
+                      {testLog && (
+                        <div className={`p-3 rounded-lg text-xs font-mono ${testLog.type === 'success' ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-red-100 text-red-900 border border-red-300'}`}>
+                          <strong>{testLog.type === 'success' ? 'SUCESSO:' : 'ERRO:'}</strong> {testLog.msg}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div>

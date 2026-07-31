@@ -13,6 +13,7 @@ import { CartItem, Category, Product } from './types';
 import { cn } from './utils/cn';
 import { MessageSquare, ArrowUpDown } from 'lucide-react';
 import { NotificationContainer, notify } from './components/NotificationOverlay';
+import { VersionUpdater } from './components/VersionUpdater';
 import { motion, AnimatePresence } from 'motion/react';
 
 const AdminModal = lazy(() => import('./components/AdminModal').then(m => ({ default: m.AdminModal })));
@@ -231,6 +232,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen pb-24 md:pb-8 flex flex-col bg-gray-50 font-sans">
+      <VersionUpdater />
       <NotificationContainer />
       <HeroSplash />
       {!computedIsOpen && (

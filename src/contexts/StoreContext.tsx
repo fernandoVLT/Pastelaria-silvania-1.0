@@ -50,6 +50,7 @@ interface StoreConfig {
   pixKey?: string;
   pixReceiverName?: string;
   pixReceiverCity?: string;
+  pixBank?: string;
   deliveryFee?: number;
   bbPixConfig?: {
     enabled: boolean;
@@ -86,9 +87,11 @@ interface StoreConfig {
   orderSuccessMessage?: string;
   whatsappApiConfig?: {
     enabled?: boolean;
+    provider?: 'zapi' | 'evolution';
     apiUrl?: string;
     instanceId?: string;
     token?: string;
+    clientToken?: string;
   };
   printConfig?: {
     autoPrint: boolean;

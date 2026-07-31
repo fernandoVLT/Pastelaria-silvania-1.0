@@ -9,6 +9,7 @@ import { useReactToPrint } from 'react-to-print';
 import { printDirectToUsb } from '../utils/printUsb';
 import { ReceiptPrint } from './ReceiptPrint';
 import { notify } from './NotificationOverlay';
+import { sendWhatsAppApiMessage } from '../utils/whatsapp';
 
 function ElapsedTimer({ startTime }: { startTime: number }) {
   const [elapsed, setElapsed] = useState(Date.now() - startTime);
@@ -79,6 +80,7 @@ export function AdminOrders() {
   const [isPrinting, setIsPrinting] = useState(false);
   const printPhaseRef = useRef<'idle' | 'kitchen' | 'dispatch'>('idle');
   const [printType, setPrintType] = useState<'kitchen' | 'dispatch' | 'all'>('kitchen');
+  const [viewReceiptUrl, setViewReceiptUrl] = useState<string | null>(null);
 
   const persistPrintedOrders = () => {
     try {
@@ -303,26 +305,14 @@ export function AdminOrders() {
       
       const text = getWhatsAppMessage(order, newStatus);
       
-      // Send silently via Evolution API if enabled
-      if (config.whatsappApiConfig?.enabled && config.whatsappApiConfig.apiUrl && config.whatsappApiConfig.instanceId) {
-        try {
-          // Fire and forget via fetch to URL
-          const endpoint = `${config.whatsappApiConfig.apiUrl.replace(/\/$/, '')}/message/sendText/${config.whatsappApiConfig.instanceId}`;
-          await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': config.whatsappApiConfig.token || ''
-            },
-            body: JSON.stringify({
-              number: phoneStr,
-              text: decodeURIComponent(text)
-            })
-          });
-          notify.success('WhatsApp enviado via API (Silencioso).');
-          return; // Skip normal window open
-        } catch (err) {
-          notify.error('Ocorreu um erro ao enviar WPP silencioso');
+      // Send silently via WhatsApp API (Z-API or Evolution API) if enabled
+      if (config.whatsappApiConfig?.enabled) {
+        const result = await sendWhatsAppApiMessage(phoneStr, decodeURIComponent(text), config.whatsappApiConfig);
+        if (result.success) {
+          notify.success('WhatsApp enviado via API!');
+          return;
+        } else {
+          notify.error(`Falha ao enviar WPP: ${result.error}`);
         }
       }
 
@@ -451,6 +441,14 @@ export function AdminOrders() {
                     {order.paymentMethod === 'Dinheiro' && !order.needsChange && (
                       <span className="block text-green-600 mt-0.5">Sem Troco</span>
                     )}
+                    {order.pixReceiptUrl && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setViewReceiptUrl(order.pixReceiptUrl!); }}
+                        className="mt-1 block w-full text-center py-1 px-2 bg-teal-50 text-teal-600 border border-teal-200 rounded text-[9px] hover:bg-teal-100 transition-colors"
+                      >
+                        Ver Comprovante
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -524,24 +522,13 @@ export function AdminOrders() {
                       const text = getWhatsAppMessage(order);
                       
                       // Using API
-                      if (config.whatsappApiConfig?.enabled && config.whatsappApiConfig.apiUrl && config.whatsappApiConfig.instanceId) {
-                        try {
-                          const endpoint = `${config.whatsappApiConfig.apiUrl.replace(/\/$/, '')}/message/sendText/${config.whatsappApiConfig.instanceId}`;
-                          await fetch(endpoint, {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              'apikey': config.whatsappApiConfig.token || ''
-                            },
-                            body: JSON.stringify({
-                              number: phoneStr,
-                              text: decodeURIComponent(text)
-                            })
-                          });
-                          notify.success('Mensagem enviada (API Silenciosa)');
+                      if (config.whatsappApiConfig?.enabled) {
+                        const result = await sendWhatsAppApiMessage(phoneStr, decodeURIComponent(text), config.whatsappApiConfig);
+                        if (result.success) {
+                          notify.success('Mensagem enviada via API!');
                           return;
-                        } catch (err) {
-                          notify.error('Erro na API.');
+                        } else {
+                          notify.error(`Falha na API: ${result.error}`);
                         }
                       }
                       
@@ -922,6 +909,30 @@ export function AdminOrders() {
                >
                  Confirmar
                </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for viewing Pix receipt */}
+      {viewReceiptUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 relative">
+            <h3 className="font-black text-lg tracking-tight uppercase text-gray-900 mb-4 text-center">Comprovante Pix</h3>
+            <div className="w-full h-[60vh] max-h-[500px] overflow-hidden rounded-xl border border-gray-100 flex items-center justify-center bg-gray-50">
+               {viewReceiptUrl.startsWith('data:image') || viewReceiptUrl.startsWith('http') ? (
+                 <img src={viewReceiptUrl} alt="Comprovante Pix" className="max-w-full max-h-full object-contain" />
+               ) : (
+                 <p className="text-sm text-gray-500">Erro: Formato de imagem inválido</p>
+               )}
+            </div>
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={() => setViewReceiptUrl(null)}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors"
+              >
+                Fechar
+              </button>
             </div>
           </div>
         </div>
