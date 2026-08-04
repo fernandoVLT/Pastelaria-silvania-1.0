@@ -1,4 +1,8 @@
-import { X, QrCode, CreditCard, Wallet, Utensils, CheckCircle, ExternalLink, MapPin, Store, Copy, Banknote, AlertCircle } from 'lucide-react';
+import { 
+  X, ChevronLeft, ChevronRight, Check, MapPin, Store, Utensils, 
+  CreditCard, Wallet, Banknote, QrCode, Copy, CheckCircle, 
+  Pencil, Percent, User, Phone, AlertCircle 
+} from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion } from 'motion/react';
@@ -35,19 +39,36 @@ const ALLOWED_NEIGHBORHOODS = [
 export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: Props) {
   const { config, recordSale, createOrder, updateOrderStatus } = useStore();
   
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  
+  // Step 1 - Entrega & Cliente
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [orderType, setOrderType] = useState<OrderType>('Delivery');
   const [neighborhood, setNeighborhood] = useState(ALLOWED_NEIGHBORHOODS[0]);
   const [street, setStreet] = useState('');
   const [addressNumber, setAddressNumber] = useState('');
+  const [complement, setComplement] = useState('');
   const [reference, setReference] = useState('');
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+
+  // Step 2 - Pagamento & Cupom
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [needsChange, setNeedsChange] = useState<boolean>(false);
   const [changeFor, setChangeFor] = useState<number | ''>('');
+  const [couponCode, setCouponCode] = useState('');
+  const [isCouponOpen, setIsCouponOpen] = useState(false);
+  const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [twoPaymentsNote, setTwoPaymentsNote] = useState('');
+  const [isTwoPaymentsOpen, setIsTwoPaymentsOpen] = useState(false);
+
+  // Step 3 - Confirmação & CPF
+  const [cpf, setCpf] = useState('');
+  const [pixReceiptUrl, setPixReceiptUrl] = useState<string>('');
+
+  // Estados de envio e pagamento
   const [isOrderSent, setIsOrderSent] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [pixReceiptUrl, setPixReceiptUrl] = useState<string>('');
   const [wpUrl, setWpUrl] = useState('');
   const [paymentLink, setPaymentLink] = useState('');
   const [bbBrcode, setBbBrcode] = useState('');
@@ -57,7 +78,25 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   const [createdOrderId, setCreatedOrderId] = useState('');
 
   const deliveryFee = orderType === 'Delivery' ? (config.deliveryFee || 3.00) : 0;
-  const finalTotal = itemsTotal + deliveryFee;
+  const finalTotal = Math.max(0, itemsTotal + deliveryFee - appliedDiscount);
+
+  // Formatação de Previsão de Entrega
+  const getDeliveryEstimate = () => {
+    const minMins = config.deliveryTimeType === 'fixed' 
+      ? (config.fixedDeliveryTime || 40)
+      : (config.minDeliveryTime || 40);
+    const maxMins = config.deliveryTimeType === 'fixed'
+      ? (config.fixedDeliveryTime || 50) + 10
+      : (config.maxDeliveryTime || 50);
+
+    const now = new Date();
+    const minTime = new Date(now.getTime() + minMins * 60000);
+    const maxTime = new Date(now.getTime() + maxMins * 60000);
+
+    const formatH = (d: Date) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    return `${formatH(minTime)} - ${formatH(maxTime)}`;
+  };
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -80,7 +119,6 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
               setIsPollingPix(false);
               clearInterval(interval);
               notify.success('Pagamento PIX confirmado com sucesso!');
-              // Atualizar status no banco
               if (createdOrderId) {
                 await updateOrderStatus(createdOrderId, 'Feito');
               }
@@ -96,6 +134,58 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
     };
   }, [isOrderSent, bbTxid, paymentConfirmed, createdOrderId, config.bbPixConfig, updateOrderStatus]);
 
+  const handleApplyCoupon = () => {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) return;
+    if (code === 'DESCONTO10' || code === '10OFF' || code === 'PASTEL10') {
+      const discount = itemsTotal * 0.10;
+      setAppliedDiscount(discount);
+      notify.success('Cupom de 10% aplicado com sucesso!');
+    } else if (code === 'PRIMEIRA' || code === '5OFF') {
+      const discount = itemsTotal * 0.05;
+      setAppliedDiscount(discount);
+      notify.success('Cupom de 5% aplicado com sucesso!');
+    } else {
+      notify.error('Cupom inválido ou expirado.');
+    }
+  };
+
+  const handleNextStep1 = () => {
+    if (!name.trim()) {
+      notify.error('Por favor, informe o seu nome completo.');
+      return;
+    }
+    if (!phone.trim()) {
+      notify.error('Por favor, informe seu telefone / WhatsApp.');
+      return;
+    }
+    if (orderType === 'Delivery') {
+      if (!street.trim() || !addressNumber.trim()) {
+        notify.error('Preencha a rua e o número para entrega.');
+        return;
+      }
+      if (!neighborhood.trim()) {
+        notify.error('Selecione o bairro de entrega.');
+        return;
+      }
+    }
+    setStep(2);
+  };
+
+  const handleNextStep2 = () => {
+    if (!paymentMethod) {
+      notify.error('Selecione uma forma de pagamento para continuar.');
+      return;
+    }
+    if (paymentMethod === 'Dinheiro' && needsChange) {
+      if (!changeFor || Number(changeFor) <= finalTotal) {
+        notify.error('Informe um valor de troco válido, maior que o total do pedido.');
+        return;
+      }
+    }
+    setStep(3);
+  };
+
   const handleSubmitOrder = async () => {
     const minOrder = config.minOrderValue || 20;
     if (itemsTotal < minOrder) {
@@ -106,20 +196,6 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
     if (!name.trim() || !phone.trim() || !paymentMethod) {
       notify.error('Preencha seu nome, WhatsApp e a forma de pagamento.');
       return;
-    }
-    
-    if (paymentMethod === 'Dinheiro' && needsChange) {
-      if (!changeFor || Number(changeFor) <= finalTotal) {
-        notify.error('Informe um valor de troco válido, maior que o total do pedido.');
-        return;
-      }
-    }
-
-    if (orderType === 'Delivery') {
-      if (!street.trim() || !addressNumber.trim()) {
-        notify.error('Preencha a rua e o número para entrega.');
-        return;
-      }
     }
 
     setIsCreating(true);
@@ -138,14 +214,17 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       const orderData: any = {
         customerName: name.trim(),
         customerPhone: phone.trim(),
+        cpf: cpf.trim() || undefined,
         orderType,
-        paymentMethod,
+        paymentMethod: twoPaymentsNote ? `${paymentMethod} (${twoPaymentsNote})` : paymentMethod,
         needsChange: paymentMethod === 'Dinheiro' ? needsChange : undefined,
         changeFor: paymentMethod === 'Dinheiro' && needsChange ? changeFor : undefined,
         items: orderItems,
         subtotal: itemsTotal,
         deliveryFee,
         total: finalTotal,
+        appliedDiscount: appliedDiscount > 0 ? appliedDiscount : undefined,
+        couponCode: appliedDiscount > 0 ? couponCode.trim().toUpperCase() : undefined,
         status: initialStatus,
         createdAt: Date.now(),
         statusLog: [{
@@ -161,11 +240,11 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
           neighborhood,
           street: street.trim(),
           number: addressNumber.trim(),
+          complement: complement.trim(),
           reference: reference.trim()
         };
       }
 
-      // Firestore doesn't accept undefined values
       const cleanOrderData = JSON.parse(JSON.stringify(orderData));
 
       const orderId = await createOrder(cleanOrderData);
@@ -190,11 +269,17 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       wppMessage += `*#️⃣ Pedido:* ${shortOrderId}\n`;
       wppMessage += `*🕒 Feito em:* ${dateStr} às ${timeStr}\n\n`;
       wppMessage += `*👤 Cliente:* ${name.trim()}\n`;
-      wppMessage += `*📞 Telefone:* ${phone.trim()}\n\n`;
+      wppMessage += `*📞 Telefone:* ${phone.trim()}\n`;
+      if (cpf.trim()) {
+        wppMessage += `*📄 CPF na Nota:* ${cpf.trim()}\n`;
+      }
+      wppMessage += `\n`;
       
       if (orderType === 'Delivery') {
         wppMessage += `*🛵 Tipo:* Delivery\n`;
-        wppMessage += `*📍 Endereço:*\n${street.trim()}, ${addressNumber.trim()} - ${neighborhood}${reference ? '\n*Referência:* ' + reference.trim() : ''}\n\n`;
+        wppMessage += `*📍 Endereço:*\n${street.trim()}, ${addressNumber.trim()} - ${neighborhood}${complement ? '\n*Comp:* ' + complement.trim() : ''}${reference ? '\n*Ref:* ' + reference.trim() : ''}\n\n`;
+      } else if (orderType === 'Consumir no local') {
+        wppMessage += `*🍽️ Tipo:* Consumir no local\n\n`;
       } else {
         wppMessage += `*🏪 Tipo:* Retirada na Loja\n\n`;
       }
@@ -204,8 +289,8 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       
       items.forEach(i => {
         wppMessage += `*👉 ${i.quantity}x ${i.product.name}*\n`;
-        if (i.product.category) {
-          wppMessage += `   _Categoria: ${i.product.category}_\n`;
+        if (i.observation) {
+          wppMessage += `   _Obs: ${i.observation}_\n`;
         }
         wppMessage += `   💰 ${i.quantity} x ${formatCurrency(i.product.price)} = ${formatCurrency(i.quantity * i.product.price)}\n\n`;
       });
@@ -216,6 +301,9 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       if (orderType === 'Delivery') {
         wppMessage += `🛵 Taxa de Entrega: ${formatCurrency(deliveryFee)}\n`;
       }
+      if (appliedDiscount > 0) {
+        wppMessage += `🎟️ Desconto (Cupom): -${formatCurrency(appliedDiscount)}\n`;
+      }
       wppMessage += `*✅ TOTAL: ${formatCurrency(finalTotal)}*\n\n`;
       
       wppMessage += `*💳 PAGAMENTO*\n`;
@@ -223,14 +311,17 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       if (paymentMethod === 'Dinheiro') {
         paymentText += needsChange ? ` (Troco para ${formatCurrency(Number(changeFor))})` : ' (Sem troco)';
       }
+      if (twoPaymentsNote) {
+        paymentText += ` | Obs: ${twoPaymentsNote}`;
+      }
       wppMessage += `Forma: ${paymentText}\n\n`;
       wppMessage += `⏱️ *Tempo Estimado:* ${timeMessage}`;
 
       if (paymentMethod === 'Pix Manual') {
-        wppMessage += `\n\n⚠️ *Comprovante Pix:* O cliente anexou o comprovante de pagamento no sistema. Você pode validá-ro no painel de pedidos.\n`;
+        wppMessage += `\n\n⚠️ *Comprovante Pix:* O cliente anexou o comprovante no sistema.\n`;
       }
       
-      if (paymentMethod === 'Pix') {
+      if (paymentMethod === 'Pix' || paymentMethod === 'Pix automático') {
         if (config.bbPixConfig?.enabled) {
           try {
             const bbRes = await fetch('/api/bb-pix', {
@@ -246,9 +337,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
             if (bbData.brcode) {
               setBbBrcode(bbData.brcode);
               setBbTxid(bbData.txid || '');
-              wppMessage += `\n🔗 *Código PIX (Copia e Cola) Banco do Brasil:* \n${bbData.brcode}\n`;
-            } else if (bbData.error) {
-              console.error("BB Pix API error:", bbData.error);
+              wppMessage += `\n🔗 *Código PIX (Copia e Cola):* \n${bbData.brcode}\n`;
             }
           } catch (err) {
             console.error("Erro ao gerar BB Pix", err);
@@ -266,8 +355,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       const wpNumber = config.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';
       const wpUrl = `https://wa.me/${wpNumber}?text=${encodeURIComponent(wppMessage)}`;
       
-      const newWindow = window.open(wpUrl, '_blank');
-      // Adiciona o wpUrl ao estado para usar depois se o bloqueador de popup tiver agido
+      window.open(wpUrl, '_blank');
       setWpUrl(wpUrl);
       
       setIsOrderSent(true);
@@ -284,7 +372,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
     onClose();
   };
 
-// ... removed nested import
+  // TELA DE SUCESSO APÓS ENVIAR O PEDIDO
   if (isOrderSent) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
@@ -306,63 +394,51 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
           <p className="text-gray-500 text-sm mb-8 leading-relaxed whitespace-pre-line">
             {config.orderSuccessMessage || 'Seu pedido foi registrado! Caso o WhatsApp não tenha aberto automaticamente, clique no botão abaixo.'}
           </p>
-          <div className="flex flex-col gap-3 w-full">
-            {bbBrcode && (
-              <div className="w-full bg-white border border-gray-200 rounded-xl p-4 flex flex-col items-center mb-2">
-                <p className="text-xs font-bold text-teal-600 uppercase tracking-widest mb-3">
-                  {paymentConfirmed ? 'Pagamento Confirmado!' : 'Pague com PIX (Banco do Brasil)'}
-                </p>
-                {paymentConfirmed ? (
-                  <div className="w-24 h-24 bg-teal-100 rounded-full flex items-center justify-center text-teal-600 mb-4 scale-in">
-                    <CheckCircle className="w-12 h-12" />
-                  </div>
-                ) : (
-                  <>
-                    <div className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm mb-3 relative">
-                      <QRCodeSVG value={bbBrcode} size={150} level="M" includeMargin={true} />
-                      {isPollingPix && (
-                        <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex flex-col items-center justify-center rounded-2xl">
-                          <div className="w-6 h-6 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-                          <span className="text-[10px] font-bold text-teal-700 mt-2 bg-white px-2 py-1 rounded-full shadow-sm">Aguardando...</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 flex flex-col gap-3">
-                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center">Pix Copia e Cola</div>
-                      <div className="w-full bg-white border border-gray-200 rounded-lg p-3 text-xs font-mono text-gray-500 break-all select-all line-clamp-2">
-                        {bbBrcode}
+
+          {bbBrcode && (
+            <div className="w-full bg-white border border-gray-200 rounded-xl p-4 flex flex-col items-center mb-4">
+              <p className="text-xs font-bold text-teal-600 uppercase tracking-widest mb-3">
+                {paymentConfirmed ? 'Pagamento Confirmado!' : 'Pague com PIX (Copia e Cola)'}
+              </p>
+              {paymentConfirmed ? (
+                <div className="w-24 h-24 bg-teal-100 rounded-full flex items-center justify-center text-teal-600 mb-4">
+                  <CheckCircle className="w-12 h-12" />
+                </div>
+              ) : (
+                <>
+                  <div className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm mb-3 relative">
+                    <QRCodeSVG value={bbBrcode} size={150} level="M" includeMargin={true} />
+                    {isPollingPix && (
+                      <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex flex-col items-center justify-center rounded-2xl">
+                        <div className="w-6 h-6 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-[10px] font-bold text-teal-700 mt-2 bg-white px-2 py-1 rounded-full shadow-sm">Aguardando...</span>
                       </div>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(bbBrcode);
-                          notify.success('Código PIX Copia e Cola copiado!');
-                        }}
-                        className="bg-teal-500 hover:bg-teal-600 text-white py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-2 shadow-sm"
-                      >
-                        <Copy className="w-4 h-4" /> Copiar Código Pix
-                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 flex flex-col gap-3">
+                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center">Pix Copia e Cola</div>
+                    <div className="w-full bg-white border border-gray-200 rounded-lg p-3 text-xs font-mono text-gray-500 break-all select-all line-clamp-2">
+                      {bbBrcode}
                     </div>
-                  </>
-                )}
-              </div>
-            )}
-            
-            {paymentLink && !bbBrcode && (
-              <a 
-                href={paymentLink} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-full bg-teal-500 hover:bg-teal-600 text-white font-black h-12 rounded-xl transition-all uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2 shadow-md shadow-teal-500/20"
-              >
-                Pagar com PIX Agora
-              </a>
-            )}
-          </div>
-          
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(bbBrcode);
+                        notify.success('Código PIX copiado!');
+                      }}
+                      className="bg-teal-500 hover:bg-teal-600 text-white py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <Copy className="w-4 h-4" /> Copiar Código Pix
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <button 
             onClick={handleCloseSuccess}
-            className="mt-6 w-full bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-4 px-6 rounded-xl transition-colors uppercase tracking-widest text-[10px]"
+            className="w-full bg-[#800000] hover:bg-[#680000] text-white font-bold py-4 px-6 rounded-xl transition-colors uppercase tracking-widest text-xs shadow-md"
           >
             Voltar para o Menu
           </button>
@@ -372,324 +448,759 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white border border-gray-100 md:rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col rounded-t-3xl animate-in slide-in-from-bottom-full md:zoom-in-95 duration-300 h-[92vh] md:h-[85vh]">
-        <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-20">
-          <h2 className="font-black text-xl tracking-tight uppercase text-gray-900">Finalizar Pedido</h2>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col h-[94vh] sm:h-[88vh] max-h-[850px] animate-in slide-in-from-bottom-6 duration-200">
         
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50/50 relative scroll-smooth">
-          <div className="space-y-6">
-            
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-4">Seus Dados</label>
-              <div className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="Seu Nome Completo"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
-                />
-                <input
-                  type="tel"
-                  placeholder="Seu WhatsApp (Ex: 31 99999-9999)"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
-                />
-              </div>
+        {/* HEADER MODAL COM VOLTAR, NOME E FECHAR */}
+        <div className="bg-white border-b border-gray-100 p-4 sticky top-0 z-20">
+          <div className="flex items-center justify-between mb-4">
+            <button 
+              onClick={() => {
+                if (step > 1) setStep((step - 1) as 1 | 2);
+                else onClose();
+              }} 
+              className="p-1.5 text-gray-700 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-colors"
+              aria-label="Voltar"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <h2 className="font-semibold text-lg text-gray-800">Checkout</h2>
+            <button 
+              onClick={onClose} 
+              className="p-1.5 text-gray-700 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-colors"
+              aria-label="Fechar"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* STEPPER NOVO NO MODELO DAS IMAGENS */}
+          <div className="relative flex items-center justify-between px-6">
+            {/* Linha traseira */}
+            <div className="absolute left-10 right-10 top-3.5 h-[3px] bg-gray-200 z-0">
+              <div 
+                className="h-full bg-[#800000] transition-all duration-300" 
+                style={{ width: step === 1 ? '0%' : step === 2 ? '50%' : '100%' }}
+              />
             </div>
 
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-4">Forma de Entrega</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setOrderType('Delivery')}
-                  className={`p-4 rounded-xl border-2 font-bold flex flex-col items-center justify-center gap-2 transition-all ${
-                    orderType === 'Delivery'
-                      ? 'border-brand-red bg-brand-red/5 text-brand-red shadow-sm'
-                      : 'border-gray-100 text-gray-400 hover:border-gray-200 hover:bg-gray-50'
-                  }`}
-                >
-                  <MapPin className={`w-6 h-6 ${orderType === 'Delivery' ? 'text-brand-red' : 'text-gray-400'}`} />
-                  Delivery
-                </button>
-                <button
-                  onClick={() => setOrderType('Retirada')}
-                  className={`p-4 rounded-xl border-2 font-bold flex flex-col items-center justify-center gap-2 transition-all ${
-                    orderType === 'Retirada'
-                      ? 'border-brand-red bg-brand-red/5 text-brand-red shadow-sm'
-                      : 'border-gray-100 text-gray-400 hover:border-gray-200 hover:bg-gray-50'
-                  }`}
-                >
-                  <Store className={`w-6 h-6 ${orderType === 'Retirada' ? 'text-brand-red' : 'text-gray-400'}`} />
-                  Retirada
-                </button>
-              </div>
+            {/* Step 1: Entrega */}
+            <div className="relative z-10 flex flex-col items-center">
+              <button 
+                onClick={() => setStep(1)}
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                  step > 1 
+                    ? 'bg-[#800000] text-white' 
+                    : step === 1 
+                      ? 'bg-[#800000] text-white ring-4 ring-[#800000]/20' 
+                      : 'bg-gray-200 text-gray-500'
+                }`}
+              >
+                {step > 1 ? <Check className="w-4 h-4 stroke-[3]" /> : '1'}
+              </button>
+              <span className={`text-[11px] font-medium mt-1.5 ${step >= 1 ? 'text-[#800000] font-semibold' : 'text-gray-400'}`}>
+                Entrega
+              </span>
+            </div>
 
-              {orderType === 'Delivery' && (
-                <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input
-                      type="text"
-                      placeholder="Rua / Avenida"
-                      value={address.street}
-                      onChange={(e) => setAddress({ ...address, street: e.target.value })}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Número"
-                      value={address.number}
-                      onChange={(e) => setAddress({ ...address, number: e.target.value })}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
-                    />
-                  </div>
+            {/* Step 2: Pagamento */}
+            <div className="relative z-10 flex flex-col items-center">
+              <button 
+                onClick={() => { if (name && phone) setStep(2); }}
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                  step > 2 
+                    ? 'bg-[#800000] text-white' 
+                    : step === 2 
+                      ? 'bg-[#800000] text-white ring-4 ring-[#800000]/20' 
+                      : 'bg-gray-200 text-gray-400'
+                }`}
+              >
+                {step > 2 ? <Check className="w-4 h-4 stroke-[3]" /> : '2'}
+              </button>
+              <span className={`text-[11px] font-medium mt-1.5 ${step >= 2 ? 'text-[#800000] font-semibold' : 'text-gray-400'}`}>
+                Pagamento
+              </span>
+            </div>
+
+            {/* Step 3: Confirmação */}
+            <div className="relative z-10 flex flex-col items-center">
+              <button 
+                onClick={() => { if (name && phone && paymentMethod) setStep(3); }}
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                  step === 3 
+                    ? 'bg-[#800000] text-white ring-4 ring-[#800000]/20' 
+                    : 'bg-gray-200 text-gray-400'
+                }`}
+              >
+                3
+              </button>
+              <span className={`text-[11px] font-medium mt-1.5 ${step === 3 ? 'text-[#800000] font-semibold' : 'text-gray-400'}`}>
+                Confirmação
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* CORPO DO CHECKOUT DIVERSIFICADO EM 3 PASSOS */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-white space-y-5">
+
+          {/* ==================== PASSO 1: ENTREGA ==================== */}
+          {step === 1 && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              
+              {/* DADOS DO CLIENTE */}
+              <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-100 space-y-3">
+                <div className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <User className="w-4 h-4 text-[#800000]" />
+                  Seus Dados
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <input
                     type="text"
-                    placeholder="Complemento (Opcional)"
-                    value={address.complement}
-                    onChange={(e) => setAddress({ ...address, complement: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
+                    placeholder="Seu Nome Completo *"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#800000] transition-colors"
                   />
-                  <select
-                    value={address.neighborhood}
-                    onChange={(e) => setAddress({ ...address, neighborhood: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all appearance-none"
-                  >
-                    <option value="" disabled>Selecione seu Bairro...</option>
-                    {ALLOWED_NEIGHBORHOODS.map(n => (
-                      <option key={n} value={n}>{n}</option>
-                    ))}
-                  </select>
+                  <input
+                    type="tel"
+                    placeholder="Seu WhatsApp com DDD *"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#800000] transition-colors"
+                  />
                 </div>
-              )}
-            </div>
-
-            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-4">Forma de Pagamento *</label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {(orderType === 'Delivery' ? (config.enabledPaymentMethodsDelivery || config.enabledPaymentMethods || FALLBACK_PAYMENT_METHODS) : (config.enabledPaymentMethodsPickup || config.enabledPaymentMethods || FALLBACK_PAYMENT_METHODS)).map((method) => {
-                  const methodConfig = 
-                    (method === 'Pix' || method === 'Pix Manual') ? { Icon: QrCode, color: 'text-teal-500', bg: 'bg-teal-50', border: 'border-teal-500' } :
-                    method === 'Cartão de Crédito' ? { Icon: CreditCard, color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-500' } :
-                    method === 'Cartão de Débito' ? { Icon: Wallet, color: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-500' } :
-                    method === 'Dinheiro' ? { Icon: Banknote, color: 'text-green-500', bg: 'bg-green-50', border: 'border-green-500' } :
-                    { Icon: Utensils, color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-500' };
-                  
-                  const { Icon, color, bg, border } = methodConfig;
-                  const isSelected = paymentMethod === method;
-                  
-                  return (
-                    <button
-                      key={method}
-                      onClick={() => setPaymentMethod(method as PaymentMethod)}
-                      className={`relative border-2 rounded-xl p-4 text-[9px] font-black tracking-widest uppercase transition-all flex flex-col items-center justify-center gap-3 text-center h-28 ${
-                        isSelected 
-                          ? `${border} ${color} ${bg} shadow-md scale-105 z-10 ring-4 ring-${color.split('-')[1]}-500/20` 
-                          : 'border-gray-200 text-gray-400 bg-white hover:border-gray-300 hover:bg-gray-50 hover:text-gray-600'
-                      }`}
-                    >
-                      <Icon className={`w-8 h-8 transition-colors ${isSelected ? color : 'text-gray-300 group-hover:text-gray-500'}`} />
-                      <span>{method}</span>
-                      {isSelected && (
-                         <div className={`absolute -top-2 -right-2 w-5 h-5 rounded-full ${bg} border-2 ${border} flex items-center justify-center`}>
-                           <div className={`w-2 h-2 rounded-full ${bg.replace('50', '500')}`}></div>
-                         </div>
-                      )}
-                    </button>
-                  );
-                })}
               </div>
-              
-              {paymentMethod && (
-                <div className="mt-6 p-4 bg-white rounded-xl border border-gray-100 flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
-                  {paymentMethod === 'Pix' && (
-                    <div className="flex flex-col items-center text-center w-full">
-                      <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center mb-3">
-                         <QrCode className="w-6 h-6" />
-                      </div>
-                      <p className="text-xs text-gray-700 font-bold mb-1">
-                        Pagamento Seguro via PIX {config.bbPixConfig?.enabled ? '(Banco do Brasil)' : ''}
-                      </p>
-                      <p className="text-[10px] text-gray-500 font-medium">Após confirmar, você receberá o QR Code para pagar e seu pedido será enviado pelo WhatsApp.</p>
-                      <div className="mt-3 py-2 px-4 bg-teal-50 border border-teal-100 rounded-xl inline-flex hidden">
-                        {/* We use hidden here to keep the generatePixCode valid if it's imported, preventing TS errors */}
-                        {generatePixCode('', '', '', 0)}
-                      </div>
-                    </div>
-                  )}
 
-                  {paymentMethod === 'Pix Manual' && (
-                    <div className="flex flex-col items-center text-center w-full">
-                      <p className="text-xs text-brand-red mb-2 font-bold uppercase tracking-widest flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Atenção!</p>
-                      <p className="text-[10px] text-gray-500 font-medium mb-4">Efetue o pagamento abaixo e <strong>anexe o comprovante</strong> para liberar o pedido.</p>
-                      
-                      <div className="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm mb-4 relative">
-                        <QRCodeSVG value={generatePixCode(config.pixKey || '', config.pixReceiverName || '', config.pixReceiverCity || '', finalTotal)} size={140} level="M" includeMargin={true} />
-                      </div>
-                      
-                      <div className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 flex flex-col gap-3">
-                        <div className="flex justify-between items-center bg-white border border-gray-200 rounded-lg p-3">
-                           <div className="flex flex-col text-left w-full">
-                             <div className="flex justify-between items-start w-full">
-                               <div className="flex flex-col">
-                                 <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Chave Pix</span>
-                                 <span className="font-mono font-bold text-gray-700 mt-0.5 text-xs">{config.pixKey || 'Não configurada'}</span>
-                               </div>
-                               <button
-                                 type="button"
-                                 onClick={(e) => {
-                                    e.preventDefault();
-                                    navigator.clipboard.writeText(config.pixKey || '');
-                                    notify.success('Chave copiada!');
-                                 }}
-                                 className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors"
-                                 aria-label="Copiar Chave"
-                               >
-                                 <Copy className="w-3 h-3" />
-                               </button>
-                             </div>
-                             <div className="flex flex-col mt-2 pt-2 border-t border-gray-100">
-                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Favorecido:</span>
-                                <span className="font-mono text-gray-600 text-xs">{config.pixReceiverName || 'Não configurado'}</span>
-                                {config.pixBank && (
-                                  <>
-                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">Banco:</span>
-                                    <span className="font-mono text-gray-600 text-xs">{config.pixBank}</span>
-                                  </>
-                                )}
-                             </div>
-                           </div>
+              {/* OPÇÃO 1: RECEBER NO ENDEREÇO (DELIVERY) */}
+              <div 
+                onClick={() => setOrderType('Delivery')}
+                className={`border rounded-2xl p-4 cursor-pointer transition-all ${
+                  orderType === 'Delivery' 
+                    ? 'border-gray-300 bg-white shadow-sm' 
+                    : 'border-gray-200 bg-gray-50/50 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                      <MapPin className="w-4 h-4" />
+                    </div>
+                    <span className="font-semibold text-sm text-gray-800">Receber no seu endereço</span>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                    orderType === 'Delivery' ? 'border-gray-800 bg-gray-800' : 'border-gray-300'
+                  }`}>
+                    {orderType === 'Delivery' && <div className="w-2 h-2 rounded-full bg-white" />}
+                  </div>
+                </div>
+
+                {/* EXPANSÃO DO ENDEREÇO QUANDO DELIVERY ESTÁ ATIVO */}
+                {orderType === 'Delivery' && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                    {street && addressNumber && !isEditingAddress ? (
+                      <div className="flex items-start justify-between bg-gray-50 p-3 rounded-xl border border-gray-100">
+                        <div className="flex gap-2.5">
+                          <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                          <div className="text-xs space-y-0.5 text-gray-700">
+                            <div className="font-bold text-gray-900">{street}, {addressNumber}</div>
+                            <div>{neighborhood}</div>
+                            {complement && <div className="text-gray-500">{complement}</div>}
+                            {reference && <div className="text-gray-500 italic">Ref: {reference}</div>}
+                          </div>
                         </div>
-    
-                        <div className="flex flex-col gap-2 mt-1">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setIsEditingAddress(true); }}
+                          className="text-xs font-bold text-[#800000] hover:underline shrink-0"
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5" onClick={(e) => e.stopPropagation()}>
+                        <div className="grid grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            placeholder="Rua / Avenida *"
+                            value={street}
+                            onChange={(e) => setStreet(e.target.value)}
+                            className="col-span-2 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#800000]"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Número *"
+                            value={addressNumber}
+                            onChange={(e) => setAddressNumber(e.target.value)}
+                            className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#800000]"
+                          />
+                        </div>
+                        <select
+                          value={neighborhood}
+                          onChange={(e) => setNeighborhood(e.target.value)}
+                          className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none focus:border-[#800000]"
+                        >
+                          {ALLOWED_NEIGHBORHOODS.map(n => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                        </select>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            placeholder="Complemento (Ex: Apt 201)"
+                            value={complement}
+                            onChange={(e) => setComplement(e.target.value)}
+                            className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#800000]"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Ponto de referência"
+                            value={reference}
+                            onChange={(e) => setReference(e.target.value)}
+                            className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#800000]"
+                          />
+                        </div>
+                        {isEditingAddress && (
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              const code = generatePixCode(config.pixKey || '', config.pixReceiverName || '', config.pixReceiverCity || '', finalTotal);
-                              navigator.clipboard.writeText(code);
-                              notify.success('Código PIX Copia e Cola copiado!');
-                            }}
-                            className="bg-teal-500 hover:bg-teal-600 text-white w-full py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center justify-center gap-2 shadow-sm"
+                            onClick={() => setIsEditingAddress(false)}
+                            className="w-full py-2 bg-gray-800 text-white font-bold text-xs rounded-xl"
                           >
-                            <Copy className="w-4 h-4" />
-                            Copiar Código Copia e Cola
+                            Confirmar Endereço
                           </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* BOX TAXA E TEMPO */}
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <div className="flex items-center gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                        <div className="w-7 h-7 rounded-full bg-gray-200/60 flex items-center justify-center text-gray-600 text-xs font-bold">
+                          $
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-gray-400 font-medium">Taxa de entrega</div>
+                          <div className="text-xs font-bold text-gray-800">{formatCurrency(deliveryFee)}</div>
                         </div>
                       </div>
-                      
-                      <div className="w-full mt-4 text-left">
-                        <label className="block text-[10px] font-bold tracking-widest uppercase text-brand-red mb-2 text-center">Obrigatório: Anexar Comprovante</label>
-                        <ImageUploadInput
-                           label=""
-                           value={pixReceiptUrl}
-                           onChange={setPixReceiptUrl}
-                           placeholder="Faça o upload do comprovante..."
-                        />
+
+                      <div className="flex items-center gap-2 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                        <div className="w-7 h-7 rounded-full bg-gray-200/60 flex items-center justify-center text-gray-600">
+                          ⏱️
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-gray-400 font-medium">Tempo de espera</div>
+                          <div className="text-xs font-bold text-gray-800">{getDeliveryEstimate()}</div>
+                        </div>
                       </div>
                     </div>
-                  )}
+                  </div>
+                )}
+              </div>
+
+              {/* OPÇÃO 2: RETIRAR NO ESTABELECIMENTO */}
+              <div 
+                onClick={() => setOrderType('Retirada')}
+                className={`border rounded-2xl p-4 cursor-pointer transition-all ${
+                  orderType === 'Retirada' 
+                    ? 'border-gray-300 bg-white shadow-sm' 
+                    : 'border-gray-200 bg-gray-50/50 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                      <Store className="w-4 h-4" />
+                    </div>
+                    <span className="font-semibold text-sm text-gray-800">Retirar no estabelecimento</span>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                    orderType === 'Retirada' ? 'border-gray-800 bg-gray-800' : 'border-gray-300'
+                  }`}>
+                    {orderType === 'Retirada' && <div className="w-2 h-2 rounded-full bg-white" />}
+                  </div>
+                </div>
+              </div>
+
+              {/* OPÇÃO 3: CONSUMIR NO LOCAL */}
+              <div 
+                onClick={() => setOrderType('Consumir no local')}
+                className={`border rounded-2xl p-4 cursor-pointer transition-all ${
+                  orderType === 'Consumir no local' 
+                    ? 'border-gray-300 bg-white shadow-sm' 
+                    : 'border-gray-200 bg-gray-50/50 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                      <Utensils className="w-4 h-4" />
+                    </div>
+                    <span className="font-semibold text-sm text-gray-800">Consumir no local</span>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                    orderType === 'Consumir no local' ? 'border-gray-800 bg-gray-800' : 'border-gray-300'
+                  }`}>
+                    {orderType === 'Consumir no local' && <div className="w-2 h-2 rounded-full bg-white" />}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* ==================== PASSO 2: PAGAMENTO ==================== */}
+          {step === 2 && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              
+              {/* CUPOM DE DESCONTO */}
+              <div className="border border-gray-200 rounded-2xl p-3.5 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setIsCouponOpen(!isCouponOpen)}
+                  className="w-full flex items-center justify-between text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+                      <Percent className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-xs text-gray-800">Tem um cupom?</div>
+                      <div className="text-[11px] text-gray-400">
+                        {appliedDiscount > 0 ? `Cupom aplicado: -${formatCurrency(appliedDiscount)}` : 'Clique e insira o código'}
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${isCouponOpen ? 'rotate-90' : ''}`} />
+                </button>
+
+                {isCouponOpen && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Código do cupom (ex: DESCONTO10)"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value)}
+                      className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-mono uppercase focus:outline-none focus:border-[#800000]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      className="bg-[#800000] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#680000] transition-colors"
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* PAGAR ONLINE */}
+              <div className="space-y-2">
+                <div className="text-xs font-bold text-gray-800 tracking-tight">Pagar online</div>
+                
+                <div 
+                  onClick={() => setPaymentMethod('Pix')}
+                  className={`border rounded-xl p-3.5 flex items-center justify-between cursor-pointer transition-all ${
+                    paymentMethod === 'Pix' 
+                      ? 'border-emerald-500 bg-emerald-50/20' 
+                      : 'border-gray-200 bg-gray-50/50 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-teal-500 flex items-center justify-center text-white">
+                      <QrCode className="w-4 h-4" />
+                    </div>
+                    <span className="font-semibold text-xs text-gray-800">Pix automático</span>
+                  </div>
+                  <span className="text-[10px] font-medium bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-200">
+                    Mais usado
+                  </span>
+                </div>
+              </div>
+
+              {/* PAGAR NA ENTREGA */}
+              <div className="space-y-2 pt-2">
+                <div className="text-xs font-bold text-gray-800 tracking-tight">Pagar na entrega</div>
+
+                {/* DINHEIRO */}
+                <div 
+                  onClick={() => setPaymentMethod('Dinheiro')}
+                  className={`border rounded-xl p-3.5 cursor-pointer transition-all ${
+                    paymentMethod === 'Dinheiro' 
+                      ? 'border-gray-800 bg-white shadow-sm' 
+                      : 'border-gray-200 bg-gray-50/50 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-lg bg-gray-200 flex items-center justify-center text-gray-700">
+                        <Banknote className="w-4 h-4" />
+                      </div>
+                      <span className="font-semibold text-xs text-gray-800">Dinheiro</span>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                      paymentMethod === 'Dinheiro' ? 'border-gray-800 bg-gray-800' : 'border-gray-300'
+                    }`}>
+                      {paymentMethod === 'Dinheiro' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                  </div>
 
                   {paymentMethod === 'Dinheiro' && (
-                    <div className="flex flex-col items-center text-center w-full">
-                      <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-3">
-                         <Banknote className="w-6 h-6" />
-                      </div>
-                      <p className="text-xs text-gray-700 font-bold mb-4">Pagamento em Dinheiro</p>
-                      
-                      <div className="flex items-center gap-4 mb-4">
-                        <span className="text-sm font-medium text-gray-600">Precisa de troco?</span>
+                    <div className="mt-3 pt-3 border-t border-gray-100 space-y-2.5" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-between text-xs text-gray-700">
+                        <span>Precisa de troco?</span>
                         <button
+                          type="button"
                           onClick={() => {
                             setNeedsChange(!needsChange);
                             if (needsChange) setChangeFor('');
                           }}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-red focus:ring-offset-2 ${needsChange ? 'bg-brand-red' : 'bg-gray-200'}`}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${needsChange ? 'bg-[#800000]' : 'bg-gray-300'}`}
                         >
-                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${needsChange ? 'translate-x-6' : 'translate-x-1'}`} />
+                          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${needsChange ? 'translate-x-4.5' : 'translate-x-1'}`} />
                         </button>
                       </div>
-                      
+
                       {needsChange && (
-                        <div className="w-full animate-in fade-in slide-in-from-top-2">
-                          <input
-                            type="text"
-                            placeholder="Troco para quanto? (Ex: 50)"
-                            value={changeFor}
-                            onChange={(e) => setChangeFor(e.target.value)}
-                            className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all text-center"
-                          />
-                        </div>
+                        <input
+                          type="text"
+                          placeholder="Troco para quanto? Ex: 50"
+                          value={changeFor}
+                          onChange={(e) => setChangeFor(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 focus:outline-none focus:border-[#800000]"
+                        />
                       )}
                     </div>
                   )}
+                </div>
 
-                  {paymentMethod !== 'Pix' && paymentMethod !== 'Pix Manual' && paymentMethod !== 'Dinheiro' && (
-                    <div className="flex flex-col items-center text-center py-4">
-                      <p className="text-xs text-gray-500 mb-6 font-medium">Lembre-se de preparar o pagamento na entrega/retirada.</p>
-                      <div className="flex items-center gap-2 bg-gray-100 text-gray-600 px-6 py-3 rounded-full text-xs font-bold tracking-widest uppercase transition-colors shadow-sm">
-                        <Wallet className="w-4 h-4" />
-                        Aguardando Pagamento Presencial
+                {/* CARTÃO DE CRÉDITO */}
+                <div 
+                  onClick={() => setPaymentMethod('Cartão de Crédito')}
+                  className={`border rounded-xl p-3.5 cursor-pointer transition-all flex items-center justify-between ${
+                    paymentMethod === 'Cartão de Crédito' 
+                      ? 'border-gray-800 bg-white shadow-sm' 
+                      : 'border-gray-200 bg-gray-50/50 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-gray-200 flex items-center justify-center text-gray-700">
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                    <span className="font-semibold text-xs text-gray-800">Cartão de crédito</span>
+                  </div>
+                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                    paymentMethod === 'Cartão de Crédito' ? 'border-gray-800 bg-gray-800' : 'border-gray-300'
+                  }`}>
+                    {paymentMethod === 'Cartão de Crédito' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </div>
+                </div>
+
+                {/* CARTÃO DE DÉBITO */}
+                <div 
+                  onClick={() => setPaymentMethod('Cartão de Débito')}
+                  className={`border rounded-xl p-3.5 cursor-pointer transition-all flex items-center justify-between ${
+                    paymentMethod === 'Cartão de Débito' 
+                      ? 'border-gray-800 bg-white shadow-sm' 
+                      : 'border-gray-200 bg-gray-50/50 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-gray-200 flex items-center justify-center text-gray-700">
+                      <Wallet className="w-4 h-4" />
+                    </div>
+                    <span className="font-semibold text-xs text-gray-800">Cartão de débito</span>
+                  </div>
+                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                    paymentMethod === 'Cartão de Débito' ? 'border-gray-800 bg-gray-800' : 'border-gray-300'
+                  }`}>
+                    {paymentMethod === 'Cartão de Débito' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </div>
+                </div>
+
+                {/* PIX MANUAL COM COMPROVANTE */}
+                <div 
+                  onClick={() => setPaymentMethod('Pix Manual')}
+                  className={`border rounded-xl p-3.5 cursor-pointer transition-all ${
+                    paymentMethod === 'Pix Manual' 
+                      ? 'border-gray-800 bg-white shadow-sm' 
+                      : 'border-gray-200 bg-gray-50/50 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-lg bg-gray-200 flex items-center justify-center text-gray-700">
+                        <QrCode className="w-4 h-4" />
+                      </div>
+                      <span className="font-semibold text-xs text-gray-800">Pix Manual (Anexar comprovante)</span>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                      paymentMethod === 'Pix Manual' ? 'border-gray-800 bg-gray-800' : 'border-gray-300'
+                    }`}>
+                      {paymentMethod === 'Pix Manual' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                  </div>
+
+                  {paymentMethod === 'Pix Manual' && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 space-y-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-center space-y-2">
+                        <p className="text-xs font-bold text-gray-800">Chave PIX: {config.pixKey || 'Não configurada'}</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(config.pixKey || '');
+                            notify.success('Chave PIX copiada!');
+                          }}
+                          className="bg-gray-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1"
+                        >
+                          <Copy className="w-3 h-3" /> Copiar Chave
+                        </button>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">Anexar Comprovante PIX</label>
+                        <ImageUploadInput
+                          label=""
+                          value={pixReceiptUrl}
+                          onChange={setPixReceiptUrl}
+                          placeholder="Fazer upload do comprovante..."
+                        />
                       </div>
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="p-6 border-t border-gray-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-6 sticky bottom-0 z-20 rounded-b-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
-          <div className="w-full sm:w-auto flex flex-col space-y-1">
-            <div className="flex justify-between sm:justify-start sm:gap-4 text-xs font-medium text-gray-500">
-              <span>Subtotal:</span>
-              <span>{formatCurrency(itemsTotal)}</span>
-            </div>
-            {orderType === 'Delivery' && (
-              <>
-                <div className="flex justify-between sm:justify-start sm:gap-4 text-xs font-medium text-gray-500">
-                  <span>Taxa de Entrega:</span>
-                  <span>{formatCurrency(deliveryFee)}</span>
-                </div>
-                {(config.deliveryTimeType === 'fixed' && config.fixedDeliveryTime) || (config.deliveryTimeType === 'range' && config.minDeliveryTime && config.maxDeliveryTime) ? (
-                  <div className="flex justify-between sm:justify-start sm:gap-4 text-xs font-medium text-gray-500">
-                    <span>Tempo Estimado:</span>
-                    <span>
-                      {config.deliveryTimeType === 'fixed' 
-                        ? `~${config.fixedDeliveryTime} min` 
-                        : `${config.minDeliveryTime}-${config.maxDeliveryTime} min`}
-                    </span>
+
+              </div>
+
+              {/* OPÇÃO DE DUAS FORMAS DE PAGAMENTO */}
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTwoPaymentsOpen(!isTwoPaymentsOpen)}
+                  className="text-xs font-bold text-[#800000] hover:underline uppercase tracking-wider"
+                >
+                  Pagar com duas formas de pagamento
+                </button>
+
+                {isTwoPaymentsOpen && (
+                  <div className="mt-2 text-left bg-gray-50 p-3 rounded-xl border border-gray-200">
+                    <textarea
+                      placeholder="Especifique como deseja dividir (Ex: R$20 no Pix e o restante em dinheiro)"
+                      value={twoPaymentsNote}
+                      onChange={(e) => setTwoPaymentsNote(e.target.value)}
+                      className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs h-16 focus:outline-none focus:border-[#800000]"
+                    />
                   </div>
-                ) : null}
-              </>
-            )}
-            <div className="flex justify-between sm:block pt-1">
-              <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest text-left">Total a Pagar</div>
-              <div className="font-black text-3xl text-brand-red tracking-tight">{formatCurrency(finalTotal)}</div>
+                )}
+              </div>
+
+              {/* RESUMO DE VALORES STEP 2 */}
+              <div className="pt-4 border-t border-gray-100 space-y-1 text-xs text-gray-500">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(itemsTotal)}</span>
+                </div>
+                {orderType === 'Delivery' && (
+                  <div className="flex justify-between">
+                    <span>Taxa de entrega</span>
+                    <span>{formatCurrency(deliveryFee)}</span>
+                  </div>
+                )}
+                {appliedDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-600 font-semibold">
+                    <span>Desconto</span>
+                    <span>-{formatCurrency(appliedDiscount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm font-bold text-gray-900 pt-1">
+                  <span>Total</span>
+                  <span className="text-base text-gray-900">{formatCurrency(finalTotal)}</span>
+                </div>
+              </div>
+
             </div>
-          </div>
-          <button 
-            onClick={handleSubmitOrder}
-            disabled={isCreating || (paymentMethod === "Pix Manual" && !pixReceiptUrl)}
-            className="w-full sm:flex-1 bg-[#25D366] hover:bg-[#20bd5a] text-white font-black h-14 rounded-full transition-all disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-3 uppercase text-[10px] tracking-[0.2em] shadow-lg hover:shadow-xl hover:-translate-y-1"
-          >
-            {isCreating ? (
-               <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-            ) : (
-              <>
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-                </svg>
-                Confirmar e Enviar Pedido
-              </>
-            )}
-          </button>
+          )}
+
+          {/* ==================== PASSO 3: CONFIRMAÇÃO ==================== */}
+          {step === 3 && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              
+              {/* CPF NA NOTA */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-gray-800">CPF na nota</label>
+                <input
+                  type="text"
+                  placeholder="Informe o seu CPF"
+                  value={cpf}
+                  onChange={(e) => setCpf(e.target.value)}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#800000] placeholder:text-gray-400"
+                />
+              </div>
+
+              {/* PREVISÃO DE ENTREGA */}
+              <div className="text-center py-2 border-y border-dashed border-gray-100 my-2">
+                <div className="text-xs text-gray-400 font-medium mb-0.5">Previsão de entrega</div>
+                <div className="text-xl font-black text-gray-800 tracking-tight">{getDeliveryEstimate()}</div>
+              </div>
+
+              {/* INFORMAÇÕES PARA ENTREGA */}
+              <div className="space-y-2">
+                <div className="text-xs font-bold text-gray-800">Informações para entrega</div>
+
+                <div className="bg-gray-50/80 p-3.5 rounded-2xl border border-gray-100 flex items-start justify-between">
+                  <div className="space-y-3 text-xs text-gray-700">
+                    <div className="flex items-center gap-2.5">
+                      <User className="w-4 h-4 text-gray-400 shrink-0" />
+                      <div>
+                        <div className="font-bold text-gray-900">{name}</div>
+                        <div className="text-gray-500">{phone}</div>
+                      </div>
+                    </div>
+
+                    {orderType === 'Delivery' ? (
+                      <div className="flex items-start gap-2.5">
+                        <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                        <div>
+                          <div className="font-bold text-gray-900">{street}, {addressNumber}</div>
+                          <div className="text-gray-600">{neighborhood}</div>
+                          {complement && <div className="text-gray-500">{complement}</div>}
+                          {reference && <div className="text-gray-500">{reference}</div>}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2.5">
+                        <Store className="w-4 h-4 text-gray-400 shrink-0" />
+                        <div className="font-bold text-gray-900">
+                          {orderType === 'Consumir no local' ? 'Consumir no local' : 'Retirada no estabelecimento'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <button 
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="p-1.5 text-gray-400 hover:text-[#800000] transition-colors"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* ITENS DO PEDIDO */}
+              <div className="space-y-2 pt-1">
+                {items.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between text-xs py-2 border-b border-gray-100 last:border-0">
+                    <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-2">
+                      <span className="bg-gray-100 border border-gray-200 text-gray-800 font-bold px-2 py-1 rounded-lg shrink-0">
+                        {item.quantity}x
+                      </span>
+                      <div className="min-w-0">
+                        <span className="font-semibold text-gray-800 block truncate">{item.product.name}</span>
+                        {item.observation && <span className="text-[10px] text-gray-400 italic block">Obs: {item.observation}</span>}
+                      </div>
+                    </div>
+                    <span className="font-bold text-gray-900 shrink-0">{formatCurrency(item.product.price * item.quantity)}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* RESUMO DO PEDIDO */}
+              <div className="pt-2 border-t border-gray-100 space-y-1.5 text-xs text-gray-500">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(itemsTotal)}</span>
+                </div>
+                {orderType === 'Delivery' && (
+                  <div className="flex justify-between">
+                    <span>Taxa de entrega</span>
+                    <span>{formatCurrency(deliveryFee)}</span>
+                  </div>
+                )}
+                {appliedDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-600 font-semibold">
+                    <span>Desconto</span>
+                    <span>-{formatCurrency(appliedDiscount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm font-bold text-gray-900 pt-1">
+                  <span>Total</span>
+                  <span className="text-base text-gray-900">{formatCurrency(finalTotal)}</span>
+                </div>
+              </div>
+
+              {/* FORMA DE PAGAMENTO SELECIONADA */}
+              <div className="space-y-1.5 pt-1">
+                <div className="text-xs font-bold text-gray-800">Pagamento</div>
+                <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2.5 font-semibold text-gray-800">
+                    {paymentMethod === 'Pix' && <QrCode className="w-4 h-4 text-teal-600" />}
+                    {paymentMethod === 'Dinheiro' && <Banknote className="w-4 h-4 text-emerald-600" />}
+                    {paymentMethod === 'Cartão de Crédito' && <CreditCard className="w-4 h-4 text-blue-600" />}
+                    {paymentMethod === 'Cartão de Débito' && <Wallet className="w-4 h-4 text-purple-600" />}
+                    <span>{paymentMethod || 'Não informado'}</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setStep(2)}
+                    className="p-1 text-gray-400 hover:text-[#800000] transition-colors"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* AVISO DO ENDEREÇO */}
+              <div className="text-center pt-2">
+                <p className="text-xs font-medium text-gray-600">
+                  Confira se o endereço para recebimento está correto!
+                </p>
+              </div>
+
+            </div>
+          )}
+
         </div>
+
+        {/* RODAPÉ DO CHECKOUT COM BOTÃO DE AÇÃO */}
+        <div className="p-4 bg-white border-t border-gray-100 sticky bottom-0 z-20">
+          {step === 1 && (
+            <button
+              type="button"
+              onClick={handleNextStep1}
+              className="w-full bg-[#800000] hover:bg-[#680000] text-white font-bold py-3.5 px-6 rounded-xl transition-colors text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md"
+            >
+              <span>CONTINUAR</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+
+          {step === 2 && (
+            <button
+              type="button"
+              onClick={handleNextStep2}
+              className="w-full bg-[#800000] hover:bg-[#680000] text-white font-bold py-3.5 px-6 rounded-xl transition-colors text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md"
+            >
+              <span>CONTINUAR</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+
+          {step === 3 && (
+            <button
+              type="button"
+              onClick={handleSubmitOrder}
+              disabled={isCreating}
+              className="w-full bg-[#800000] hover:bg-[#680000] text-white font-bold py-3.5 px-6 rounded-xl transition-colors text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+            >
+              {isCreating ? (
+                <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              ) : (
+                'ENVIAR PEDIDO'
+              )}
+            </button>
+          )}
+        </div>
+
       </div>
     </div>
   );

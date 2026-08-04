@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, AlertTriangle, X } from 'lucide-react';
 
-const APP_VERSION = import.meta.env.VITE_APP_VERSION;
-const IS_DEV = import.meta.env.DEV || APP_VERSION === 'dev';
+const APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION;
+const IS_DEV = (import.meta as any).env?.DEV || APP_VERSION === 'dev';
 
 export function VersionUpdater() {
   const [hasUpdate, setHasUpdate] = useState(false);

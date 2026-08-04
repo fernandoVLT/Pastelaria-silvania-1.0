@@ -47,7 +47,7 @@ export interface CartItem {
 export type PaymentMethod = 'Pix' | 'Cartão de Crédito' | 'Cartão de Débito' | 'Vale Alimentação' | 'Dinheiro' | string;
 
 export type OrderStatus = 'Feito' | 'Aguardando Confirmação Pix' | 'Em Preparo' | 'Pronto' | 'A caminho' | 'Entregue' | 'Cancelado';
-export type OrderType = 'Delivery' | 'Retirada';
+export type OrderType = 'Delivery' | 'Retirada' | 'Consumir no local';
 
 export interface OrderItem {
   productName: string;
@@ -62,6 +62,7 @@ export interface Order {
   id?: string;
   customerName: string;
   customerPhone?: string;
+  cpf?: string;
   orderType: OrderType;
   observation?: string;
   address?: {
