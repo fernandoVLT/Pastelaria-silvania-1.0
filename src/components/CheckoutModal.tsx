@@ -52,6 +52,15 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   const [reference, setReference] = useState('');
   const [isEditingAddress, setIsEditingAddress] = useState(false);
 
+  // Endereço construído e acessível no escopo do componente
+  const address = orderType === 'Delivery' ? {
+    neighborhood: neighborhood || '',
+    street: street.trim(),
+    number: addressNumber.trim(),
+    complement: complement.trim(),
+    reference: reference.trim()
+  } : undefined;
+
   // Step 2 - Pagamento & Cupom
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [needsChange, setNeedsChange] = useState<boolean>(false);
@@ -235,14 +244,8 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
         pixReceiptUrl: (paymentMethod === 'Pix Manual' && pixReceiptUrl) ? pixReceiptUrl : undefined
       };
 
-      if (orderType === 'Delivery') {
-        orderData.address = {
-          neighborhood,
-          street: street.trim(),
-          number: addressNumber.trim(),
-          complement: complement.trim(),
-          reference: reference.trim()
-        };
+      if (orderType === 'Delivery' && address) {
+        orderData.address = address;
       }
 
       const cleanOrderData = JSON.parse(JSON.stringify(orderData));
@@ -275,9 +278,9 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       }
       wppMessage += `\n`;
       
-      if (orderType === 'Delivery') {
+      if (orderType === 'Delivery' && address) {
         wppMessage += `*🛵 Tipo:* Delivery\n`;
-        wppMessage += `*📍 Endereço:*\n${street.trim()}, ${addressNumber.trim()} - ${neighborhood}${complement ? '\n*Comp:* ' + complement.trim() : ''}${reference ? '\n*Ref:* ' + reference.trim() : ''}\n\n`;
+        wppMessage += `*📍 Endereço:*\n${address.street}, ${address.number} - ${address.neighborhood}${address.complement ? '\n*Comp:* ' + address.complement : ''}${address.reference ? '\n*Ref:* ' + address.reference : ''}\n\n`;
       } else if (orderType === 'Consumir no local') {
         wppMessage += `*🍽️ Tipo:* Consumir no local\n\n`;
       } else {
