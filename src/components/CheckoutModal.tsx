@@ -281,10 +281,9 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
       if (orderType === 'Delivery' && address) {
         wppMessage += `*🛵 Tipo:* Delivery\n`;
         wppMessage += `*📍 Endereço:*\n${address.street}, ${address.number} - ${address.neighborhood}${address.complement ? '\n*Comp:* ' + address.complement : ''}${address.reference ? '\n*Ref:* ' + address.reference : ''}\n\n`;
-      } else if (orderType === 'Consumir no local') {
-        wppMessage += `*🍽️ Tipo:* Consumir no local\n\n`;
       } else {
-        wppMessage += `*🏪 Tipo:* Retirada na Loja\n\n`;
+        wppMessage += `*🏪 Tipo:* Retirada na Loja\n`;
+        wppMessage += `*📍 Endereço de Retirada:* Rua Lobo Leite, nº 100 - Primeiro de Maio\n\n`;
       }
       
       wppMessage += `*📋 ITENS DO PEDIDO*\n`;
@@ -722,30 +721,19 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                     {orderType === 'Retirada' && <div className="w-2 h-2 rounded-full bg-white" />}
                   </div>
                 </div>
-              </div>
 
-              {/* OPÇÃO 3: CONSUMIR NO LOCAL */}
-              <div 
-                onClick={() => setOrderType('Consumir no local')}
-                className={`border rounded-2xl p-4 cursor-pointer transition-all ${
-                  orderType === 'Consumir no local' 
-                    ? 'border-gray-300 bg-white shadow-sm' 
-                    : 'border-gray-200 bg-gray-50/50 hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-                      <Utensils className="w-4 h-4" />
+                {orderType === 'Retirada' && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-2 text-xs text-gray-600">
+                    <div className="flex items-start gap-2.5">
+                      <MapPin className="w-4 h-4 text-[#800000] mt-0.5 shrink-0" />
+                      <div>
+                        <span className="font-bold text-gray-900">Endereço para retirada:</span>
+                        <div className="mt-1">Rua Lobo Leite, nº 100</div>
+                        <div>Primeiro de Maio</div>
+                      </div>
                     </div>
-                    <span className="font-semibold text-sm text-gray-800">Consumir no local</span>
                   </div>
-                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                    orderType === 'Consumir no local' ? 'border-gray-800 bg-gray-800' : 'border-gray-300'
-                  }`}>
-                    {orderType === 'Consumir no local' && <div className="w-2 h-2 rounded-full bg-white" />}
-                  </div>
-                </div>
+                )}
               </div>
 
             </div>
@@ -1026,21 +1014,9 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
           {/* ==================== PASSO 3: CONFIRMAÇÃO ==================== */}
           {step === 3 && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              
-              {/* CPF NA NOTA */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-gray-800">CPF na nota</label>
-                <input
-                  type="text"
-                  placeholder="Informe o seu CPF"
-                  value={cpf}
-                  onChange={(e) => setCpf(e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-[#800000] placeholder:text-gray-400"
-                />
-              </div>
 
               {/* PREVISÃO DE ENTREGA */}
-              <div className="text-center py-2 border-y border-dashed border-gray-100 my-2">
+              <div className="text-center py-2 border-b border-dashed border-gray-100 mb-2 pb-2">
                 <div className="text-xs text-gray-400 font-medium mb-0.5">Previsão de entrega</div>
                 <div className="text-xl font-black text-gray-800 tracking-tight">{getDeliveryEstimate()}</div>
               </div>
@@ -1070,10 +1046,11 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2.5">
-                        <Store className="w-4 h-4 text-gray-400 shrink-0" />
-                        <div className="font-bold text-gray-900">
-                          {orderType === 'Consumir no local' ? 'Consumir no local' : 'Retirada no estabelecimento'}
+                      <div className="flex items-start gap-2.5">
+                        <Store className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                        <div>
+                          <div className="font-bold text-gray-900">Retirada no estabelecimento</div>
+                          <div className="text-xs text-gray-500 mt-1">Rua Lobo Leite, nº 100 - Primeiro de Maio</div>
                         </div>
                       </div>
                     )}
