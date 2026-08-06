@@ -914,6 +914,62 @@ export function AdminModal({ onClose }: { onClose: () => void }) {
                   )}
                 </div>
 
+                <h3 className="font-black text-sm uppercase tracking-widest text-gray-900 mb-4 mt-6">InfinitePay API (Pix / Cartão)</h3>
+                
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={formConfig.infinitePayConfig?.enabled || false}
+                      onChange={e => setFormConfig({...formConfig, infinitePayConfig: { ...formConfig.infinitePayConfig, enabled: e.target.checked } as any})}
+                      className="w-5 h-5 rounded border-gray-300 text-brand-red focus:ring-brand-red cursor-pointer"
+                    />
+                    <div>
+                      <div className="text-sm font-bold text-gray-900">Ativar InfinitePay (Checkout Integrado)</div>
+                      <div className="text-[10px] text-gray-500">Gera links de pagamento com Pix e Cartão de forma integrada com taxa zero no Pix.</div>
+                    </div>
+                  </div>
+                  
+                  {formConfig.infinitePayConfig?.enabled && (
+                    <div className="space-y-4 pt-3 border-t border-gray-200">
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800 text-xs leading-relaxed">
+                        💡 <strong>Observação Importante:</strong> O Checkout Integrado da InfinitePay <strong>não necessita</strong> de Client ID ou Client Secret para gerar os links de pagamento. A autenticação é feita de forma pública usando apenas a sua <strong>InfiniteTag</strong> (o seu nome de usuário/identificador do estabelecimento). Você pode deixar os campos de Client ID e Client Secret em branco!
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">InfiniteTag (Ex: silvania-barreto)</label>
+                        <input 
+                          type="text" 
+                          value={formConfig.infinitePayConfig.infiniteTag || ''} 
+                          onChange={e => setFormConfig({...formConfig, infinitePayConfig: { ...formConfig.infinitePayConfig, infiniteTag: e.target.value } as any})}
+                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 text-sm font-bold"
+                          placeholder="Sua tag no InfinitePay"
+                        />
+                        <div className="text-[9px] text-gray-400 mt-1">Este é o seu identificador público (usuário) da InfinitePay, obrigatório para gerar os links. Você encontra na sua Conta Web (app.infinitepay.io), no menu lateral Checkout, aba Documentação.</div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Client ID (Opcional - Deixe em branco)</label>
+                        <input 
+                          type="text" 
+                          value={formConfig.infinitePayConfig.clientId || ''} 
+                          onChange={e => setFormConfig({...formConfig, infinitePayConfig: { ...formConfig.infinitePayConfig, clientId: e.target.value } as any})}
+                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 font-mono text-sm opacity-60 focus:opacity-100"
+                          placeholder="Não necessário para Checkout Integrado"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-2">Client Secret (Opcional - Deixe em branco)</label>
+                        <input 
+                          type="password" 
+                          value={formConfig.infinitePayConfig.clientSecret || ''} 
+                          onChange={e => setFormConfig({...formConfig, infinitePayConfig: { ...formConfig.infinitePayConfig, clientSecret: e.target.value } as any})}
+                          className="w-full bg-white border border-gray-200 rounded-xl p-3 text-gray-900 font-mono text-sm opacity-60 focus:opacity-100"
+                          placeholder="Não necessário para Checkout Integrado"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <button 
                   onClick={handleSaveConfig}
                   className="mt-4 px-6 py-3 bg-brand-red text-white text-[10px] uppercase font-black tracking-widest rounded-xl hover:bg-brand-red-dark transition-colors flex items-center gap-2"

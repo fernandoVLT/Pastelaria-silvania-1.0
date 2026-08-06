@@ -82,6 +82,133 @@ app.post('/api/bb-pix', async (req, res) => {
   }
 });
 
+app.post('/api/infinitepay-checkout', async (req, res) => {
+  try {
+    const { amount, infinitePayConfig, items, redirectUrl } = req.body;
+
+    if (!infinitePayConfig || !infinitePayConfig.enabled || !infinitePayConfig.infiniteTag) {
+      return res.status(400).json({ error: 'Configuração do InfinitePay não definida ou incompleta no painel.' });
+    }
+
+    const { infiniteTag, clientId, clientSecret } = infinitePayConfig;
+    const cleanTag = (infiniteTag || '').replace(/^\$/, '').trim();
+
+    if (!cleanTag) {
+      return res.status(400).json({ error: 'InfiniteTag não informada ou inválida.' });
+    }
+
+    // Cabeçalhos padrão
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    // Autenticação Opcional Oauth Client Credentials
+    if (clientId && clientSecret && clientId.trim() && clientSecret.trim()) {
+      try {
+        const authRes = await fetch('https://api.infinitepay.io/v1/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: clientId.trim(),
+            client_secret: clientSecret.trim(),
+            grant_type: 'client_credentials'
+          })
+        });
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          if (authData.access_token) {
+            headers['Authorization'] = `Bearer ${authData.access_token}`;
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao obter token InfinitePay, tentando sem autenticação:', err);
+      }
+    }
+
+    // Preparar os itens convertendo os valores de Real para Centavos (inteiros)
+    let formattedItems = [];
+    const targetAmountCents = Math.round(Number(amount) * 100);
+
+    let itemsSum = 0;
+    const mappedItems = (items && items.length > 0) ? items.map(item => {
+      const p = Math.round(Number(item.price) * 100);
+      const q = Number(item.quantity) || 1;
+      itemsSum += p * q;
+      return {
+        quantity: q,
+        price: p,
+        description: item.name || item.description || 'Item do Pedido'
+      };
+    }) : [];
+
+    const diff = targetAmountCents - itemsSum;
+
+    if (mappedItems.length > 0 && diff >= 0) {
+      formattedItems = [...mappedItems];
+      if (diff > 0) {
+        formattedItems.push({
+          quantity: 1,
+          price: diff,
+          description: 'Taxa de Entrega / Adicionais'
+        });
+      }
+    } else {
+      // Se não houver itens ou se houver desconto (diff < 0), consolidamos tudo em um único item com o valor final correto
+      formattedItems = [
+        {
+          quantity: 1,
+          price: targetAmountCents,
+          description: 'Pedido Pastelaria (Total)'
+        }
+      ];
+    }
+
+    const payload = {
+      handle: cleanTag,
+      redirect_url: redirectUrl || 'https://google.com',
+      items: formattedItems
+    };
+
+    console.log('Solicitando link InfinitePay com payload:', JSON.stringify(payload));
+
+    const apiRes = await fetch('https://api.checkout.infinitepay.io/links', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
+    });
+
+    const responseText = await apiRes.text();
+    console.log(`InfinitePay API Status: ${apiRes.status}, Response: ${responseText}`);
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      data = { raw: responseText };
+    }
+
+    if (!apiRes.ok) {
+      console.error('InfinitePay Link API Error:', responseText);
+      return res.status(apiRes.status).json({ 
+        error: 'Erro ao gerar link de pagamento na InfinitePay.', 
+        details: responseText,
+        status: apiRes.status 
+      });
+    }
+
+    const finalUrl = data.url || data.checkout_url || data.payment_url || data.link || data.checkoutUrl || (data.data && (data.data.url || data.data.checkout_url));
+    
+    return res.json({
+      ...data,
+      url: finalUrl
+    });
+
+  } catch (error) {
+    console.error('Erro na API InfinitePay:', error);
+    res.status(500).json({ error: 'Erro interno no servidor ao gerar link da InfinitePay.' });
+  }
+});
+
 app.post('/api/bb-pix-status', async (req, res) => {
   try {
     const { txid, bbPixConfig } = req.body;

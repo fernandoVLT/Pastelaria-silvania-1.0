@@ -59,6 +59,12 @@ interface StoreConfig {
     developerAppKey: string;
     isProduction: boolean;
   };
+  infinitePayConfig?: {
+    enabled: boolean;
+    infiniteTag: string;
+    clientId?: string;
+    clientSecret?: string;
+  };
   deliveryTimeType?: 'fixed' | 'range';
   fixedDeliveryTime?: number;
   minDeliveryTime?: number;
@@ -153,6 +159,12 @@ const DEFAULT_CONFIG: StoreConfig = {
     clientSecret: '',
     developerAppKey: '',
     isProduction: false,
+  },
+  infinitePayConfig: {
+    enabled: false,
+    infiniteTag: '',
+    clientId: '',
+    clientSecret: '',
   },
   deliveryTimeType: 'range',
   fixedDeliveryTime: 40,

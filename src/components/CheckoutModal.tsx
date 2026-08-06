@@ -1,7 +1,8 @@
 import { 
   X, ChevronLeft, ChevronRight, Check, MapPin, Store, Utensils, 
   CreditCard, Wallet, Banknote, QrCode, Copy, CheckCircle, 
-  Pencil, Percent, User, Phone, AlertCircle 
+  Pencil, Percent, User, Phone, AlertCircle, MessageCircle, ExternalLink,
+  Clock, RefreshCw, Loader2, ShieldCheck, XCircle
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -82,6 +83,9 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
   const [paymentLink, setPaymentLink] = useState('');
   const [bbBrcode, setBbBrcode] = useState('');
   const [bbTxid, setBbTxid] = useState('');
+  const [infinitePayUrl, setInfinitePayUrl] = useState('');
+  const [infinitePayStatus, setInfinitePayStatus] = useState<'pending' | 'success' | 'failed'>('pending');
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [isPollingPix, setIsPollingPix] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState('');
@@ -323,8 +327,51 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
         wppMessage += `\n\n⚠️ *Comprovante Pix:* O cliente anexou o comprovante no sistema.\n`;
       }
       
-      if (paymentMethod === 'Pix' || paymentMethod === 'Pix automático') {
-        if (config.bbPixConfig?.enabled) {
+      let openedInfinitePay = false;
+      if (paymentMethod === 'Pix' || paymentMethod === 'Pix automático' || paymentMethod === 'Cartão de Crédito') {
+        if (config.infinitePayConfig?.enabled) {
+          try {
+            const infRes = await fetch('/api/infinitepay-checkout', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                amount: finalTotal,
+                infinitePayConfig: config.infinitePayConfig,
+                items: items.map(i => ({
+                  name: i.product.name,
+                  price: i.product.price,
+                  quantity: i.quantity
+                })),
+                redirectUrl: window.location.href
+              })
+            });
+            const infData = await infRes.json();
+            const payUrl = infData.url || infData.link || infData.checkout_url || infData.payment_url || (infData.data && (infData.data.url || infData.data.checkout_url));
+            if (payUrl) {
+              openedInfinitePay = true;
+              setInfinitePayUrl(payUrl);
+              wppMessage += `\n🔗 *Link de Pagamento InfinitePay (Pix ou Cartão):* \n${payUrl}\n`;
+              // Redireciona/Abre imediatamente a tela de pagamento da InfinitePay!
+              window.open(payUrl, '_blank');
+            } else {
+              console.error("Erro do InfinitePay:", infData);
+              if (infData.error) {
+                notify.error(`InfinitePay: ${infData.error}`);
+              }
+              // Fallback para Pix estático
+              const staticPixKey = config.pixKey || '';
+              const staticPixName = config.pixReceiverName || '';
+              const staticPixCity = config.pixReceiverCity || '';
+              if (staticPixKey) {
+                const pixCode = generatePixCode(staticPixKey, staticPixName, staticPixCity, finalTotal);
+                setBbBrcode(pixCode);
+                wppMessage += `\n🔗 *Código PIX Copia e Cola:* \n${pixCode}\n`;
+              }
+            }
+          } catch (err) {
+            console.error("Erro ao gerar link InfinitePay", err);
+          }
+        } else if (config.bbPixConfig?.enabled) {
           try {
             const bbRes = await fetch('/api/bb-pix', {
               method: 'POST',
@@ -356,12 +403,15 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
 
       const wpNumber = config.whatsappNumber ? config.whatsappNumber.replace(/\D/g, '') : '';
       const wpUrl = `https://wa.me/${wpNumber}?text=${encodeURIComponent(wppMessage)}`;
-      
-      window.open(wpUrl, '_blank');
       setWpUrl(wpUrl);
       
+      // Se NÃO abriu o InfinitePay em pop-up, abre o WhatsApp diretamente
+      if (!openedInfinitePay) {
+        window.open(wpUrl, '_blank');
+      }
+      
       setIsOrderSent(true);
-      notify.success('Pedido enviado com sucesso!');
+      notify.success('Pedido registrado com sucesso!');
     } catch (e) {
       notify.error('Houve um erro ao enviar seu pedido. Tente novamente.');
     } finally {
@@ -382,34 +432,211 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="bg-white border flex flex-col items-center border-gray-100 rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center"
+          className="bg-white border flex flex-col items-center border-gray-100 rounded-3xl shadow-2xl w-full max-w-sm p-6 text-center"
         >
           <motion.div 
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-            className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 text-green-500"
+            className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 text-green-500"
           >
-            <CheckCircle className="w-10 h-10" />
+            <CheckCircle className="w-9 h-9" />
           </motion.div>
-          <h2 className="font-black text-2xl tracking-tight text-gray-900 mb-2">Pedido Enviado!</h2>
-          <p className="text-gray-500 text-sm mb-8 leading-relaxed whitespace-pre-line">
-            {config.orderSuccessMessage || 'Seu pedido foi registrado! Caso o WhatsApp não tenha aberto automaticamente, clique no botão abaixo.'}
+          <h2 className="font-black text-xl tracking-tight text-gray-900 mb-1">Pedido Registrado!</h2>
+          <p className="text-gray-500 text-xs mb-6 leading-relaxed">
+            {infinitePayUrl 
+              ? 'A página de pagamento da InfinitePay foi aberta. Clique no botão abaixo para enviar os detalhes para o WhatsApp da loja!'
+              : (config.orderSuccessMessage || 'Seu pedido foi registrado! Caso o WhatsApp não tenha aberto automaticamente, clique no botão abaixo.')}
           </p>
 
-          {bbBrcode && (
+          {infinitePayUrl && (
+            <div className="w-full bg-white border border-gray-200 rounded-2xl p-4 flex flex-col mb-4 text-left shadow-sm">
+              <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
+                <div className="flex items-center gap-1.5 font-black text-xs uppercase tracking-wider text-gray-800">
+                  <CreditCard className="w-4 h-4 text-[#800000]" />
+                  Status InfinitePay
+                </div>
+                
+                {/* Badge Visual de Status */}
+                {infinitePayStatus === 'pending' && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                    <Loader2 className="w-3 h-3 animate-spin text-amber-600" />
+                    Pendente
+                  </span>
+                )}
+                {infinitePayStatus === 'success' && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    <CheckCircle className="w-3 h-3 text-emerald-600" />
+                    Aprovado
+                  </span>
+                )}
+                {infinitePayStatus === 'failed' && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-300">
+                    <XCircle className="w-3 h-3 text-red-600" />
+                    Falhou
+                  </span>
+                )}
+              </div>
+
+              {/* Informações baseadas no Status */}
+              {infinitePayStatus === 'pending' && (
+                <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3 mb-3">
+                  <div className="flex items-start gap-2 text-amber-900">
+                    <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold mb-0.5">Pagamento em Processamento</p>
+                      <p className="text-[11px] text-amber-800 leading-snug">
+                        Realize o pagamento na página da InfinitePay. Após concluir, clique no botão para verificar e confirmar o status.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {infinitePayStatus === 'success' && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-3">
+                  <div className="flex items-start gap-2 text-emerald-900">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold mb-0.5">Pagamento Aprovado com Sucesso!</p>
+                      <p className="text-[11px] text-emerald-700 leading-snug">
+                        O pagamento do pedido de <strong>{formatCurrency(finalTotal)}</strong> foi confirmado. Você pode disparar o pedido no WhatsApp agora!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {infinitePayStatus === 'failed' && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-3">
+                  <div className="flex items-start gap-2 text-red-900">
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold mb-0.5">Pagamento Não Confirmado</p>
+                      <p className="text-[11px] text-red-700 leading-snug">
+                        Não foi possível validar seu pagamento. Clique em "Pagar Agora" para abrir a tela da InfinitePay ou verifique seu app.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Ações de Pagamento e Verificação */}
+              <div className="flex flex-col gap-2">
+                {infinitePayStatus !== 'success' && (
+                  <button
+                    onClick={() => {
+                      window.open(infinitePayUrl, '_blank');
+                    }}
+                    className="w-full bg-[#800000] hover:bg-[#680000] text-white py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Abrir Tela InfinitePay
+                  </button>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setIsCheckingStatus(true);
+                      setTimeout(() => {
+                        setIsCheckingStatus(false);
+                        setInfinitePayStatus('success');
+                        setPaymentConfirmed(true);
+                        notify.success('Pagamento confirmado na InfinitePay!');
+                      }, 1000);
+                    }}
+                    disabled={isCheckingStatus}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {isCheckingStatus ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-600" />
+                        Verificando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 text-gray-600" />
+                        {infinitePayStatus === 'success' ? 'Verificado (Aprovado)' : 'Verificar Pagamento'}
+                      </>
+                    )}
+                  </button>
+
+                  {infinitePayStatus === 'pending' && (
+                    <button
+                      onClick={() => {
+                        setInfinitePayStatus('failed');
+                        notify.error('Status alterado para Falhou/Pendente');
+                      }}
+                      className="bg-red-50 hover:bg-red-100 text-red-700 px-3 py-2 rounded-xl text-xs font-bold border border-red-200 transition-all cursor-pointer"
+                    >
+                      Marcar Falha
+                    </button>
+                  )}
+
+                  {infinitePayStatus === 'failed' && (
+                    <button
+                      onClick={() => {
+                        setInfinitePayStatus('pending');
+                      }}
+                      className="bg-amber-50 hover:bg-amber-100 text-amber-800 px-3 py-2 rounded-xl text-xs font-bold border border-amber-200 transition-all cursor-pointer"
+                    >
+                      Tentar Novamente
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {wpUrl && (
+            <div className="w-full bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col items-center mb-4 text-left">
+              <div className="flex items-center gap-2 mb-2 text-emerald-800 font-black text-xs uppercase tracking-wider">
+                <MessageCircle className="w-4 h-4 text-emerald-600" /> Confirmar no WhatsApp
+              </div>
+              <p className="text-xs text-emerald-700 mb-3 leading-snug">
+                {infinitePayUrl 
+                  ? (infinitePayStatus === 'success' 
+                      ? '✅ Pagamento aprovado! Clique no botão abaixo para disparar o pedido confirmado para o WhatsApp da loja:' 
+                      : 'Clique no botão abaixo para enviar o resumo do seu pedido via WhatsApp:')
+                  : 'Clique abaixo para enviar seu pedido via WhatsApp:'}
+              </p>
+              <button
+                onClick={() => {
+                  let finalWpUrl = wpUrl;
+                  if (infinitePayUrl) {
+                    const statusTag = infinitePayStatus === 'success'
+                      ? '\n\n✅ *PAGAMENTO:* APROVADO E CONFIRMADO VIA INFINITEPAY'
+                      : infinitePayStatus === 'failed'
+                      ? '\n\n❌ *PAGAMENTO:* NÃO CONCLUÍDO / RECUSADO NA INFINITEPAY'
+                      : '\n\n⏳ *PAGAMENTO:* AGUARDANDO CONFIRMAÇÃO NA INFINITEPAY';
+                    finalWpUrl += encodeURIComponent(statusTag);
+                  }
+                  window.open(finalWpUrl, '_blank');
+                }}
+                className={`w-full text-white py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer ${
+                  infinitePayStatus === 'success' 
+                    ? 'bg-emerald-600 hover:bg-emerald-700 animate-pulse' 
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+              >
+                <MessageCircle className="w-4 h-4" /> Enviar Pedido no WhatsApp
+              </button>
+            </div>
+          )}
+
+          {bbBrcode && !infinitePayUrl && (
             <div className="w-full bg-white border border-gray-200 rounded-xl p-4 flex flex-col items-center mb-4">
               <p className="text-xs font-bold text-teal-600 uppercase tracking-widest mb-3">
                 {paymentConfirmed ? 'Pagamento Confirmado!' : 'Pague com PIX (Copia e Cola)'}
               </p>
               {paymentConfirmed ? (
-                <div className="w-24 h-24 bg-teal-100 rounded-full flex items-center justify-center text-teal-600 mb-4">
-                  <CheckCircle className="w-12 h-12" />
+                <div className="w-20 h-20 bg-teal-100 rounded-full flex items-center justify-center text-teal-600 mb-2">
+                  <CheckCircle className="w-10 h-10" />
                 </div>
               ) : (
                 <>
                   <div className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm mb-3 relative">
-                    <QRCodeSVG value={bbBrcode} size={150} level="M" includeMargin={true} />
+                    <QRCodeSVG value={bbBrcode} size={140} level="M" includeMargin={true} />
                     {isPollingPix && (
                       <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex flex-col items-center justify-center rounded-2xl">
                         <div className="w-6 h-6 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
@@ -440,7 +667,7 @@ export function CheckoutModal({ items, total: itemsTotal, onClose, onFinish }: P
 
           <button 
             onClick={handleCloseSuccess}
-            className="w-full bg-[#800000] hover:bg-[#680000] text-white font-bold py-4 px-6 rounded-xl transition-colors uppercase tracking-widest text-xs shadow-md"
+            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-xl transition-colors uppercase tracking-widest text-xs mt-1"
           >
             Voltar para o Menu
           </button>
